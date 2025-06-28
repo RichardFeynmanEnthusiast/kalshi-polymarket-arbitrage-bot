@@ -97,6 +97,7 @@ class StoreTradeResults(BaseCommand):
     """Command to instruct the trade storage service to flush the trade results to the database"""
     arb_trade_results: ArbTradeResultReceived
 
+
 class TradeFailed(BaseEvent):
     """
     Event published when on leg of an arbitrage trade fails,
@@ -106,3 +107,12 @@ class TradeFailed(BaseEvent):
     successful_leg: TradeDetails
     opportunity: ArbitrageOpportunity
     error_message: str
+
+
+class TradeAttemptCompleted(BaseEvent):
+    """
+    Event published after a trade attempt (success, partial failure, or full failure)
+    has been fully processed by the executor. This signals that the system is ready to evaluate
+    new arbitrage opportunities
+    """
+    pass
