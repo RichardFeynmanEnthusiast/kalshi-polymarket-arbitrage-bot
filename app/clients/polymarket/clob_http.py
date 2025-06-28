@@ -1,6 +1,7 @@
+import asyncio
 from typing import Any, Dict, List, Optional
 
-import requests
+import aiohttp
 from py_clob_client.client import ClobClient
 from py_clob_client.clob_types import OrderType, OrderArgs, PartialCreateOrderOptions, TickSize, ApiCreds
 from py_clob_client.http_helpers.helpers import PolyApiException
@@ -71,7 +72,7 @@ class PolymClobHttpClient(PolymBaseClient):
             raise
         return order_books
 
-    def place_single_order(
+    async def place_single_order(
             self,
             salt: int,
             maker: str,
@@ -90,7 +91,7 @@ class PolymClobHttpClient(PolymBaseClient):
             order_type: str
     ) -> Dict[str, Any]:
         """
-        Create and place a single order via the Polymarket CLOB API.
+        Create and place a single order via the Polymarket CLOB API asynchronously.
 
         Args:
             salt: Random salt for uniqueness.
@@ -136,20 +137,22 @@ class PolymClobHttpClient(PolymBaseClient):
         }
         url = f"{self.host}/order"
         headers = {"L2-Auth": self.clob_api_key}
-        try:
-            response = requests.post(url, json=payload, headers=headers)
-            response.raise_for_status()
-            data = response.json()
-        except requests.RequestException as e:
-            print(f"HTTP error placing single order: {e}")
-            raise
+
+        async with aiohttp.ClientSession(headers=headers) as session:
+            try:
+                async with session.post(url, json=payload) as response:
+                    response.raise_for_status()
+                    data = await response.json()
+            except aiohttp.ClientError as e:
+                print(f"HTTP error placing single order: {e}")
+                raise
 
         if not data.get("success", False):
             error_msg = data.get("errorMsg", "Unknown error")
             raise PolyApiException(f"Order placement failed: {error_msg}")
         return data
 
-    def place_order(
+    async def place_order(
         self,
         token_id: str,
         price: float,
@@ -160,7 +163,8 @@ class PolymClobHttpClient(PolymBaseClient):
         neg_risk: Optional[bool] = None,
     ) -> Dict[str, Any]:
         """
-        Build, sign, and submit a single order in one call.
+        Build, sign, and submit a single order in a non-blocking way.
+        This runs the synchronous client calls in a separate thread.
 
         Args:
             token_id: ERC1155 token ID of conditional token.
@@ -174,20 +178,25 @@ class PolymClobHttpClient(PolymBaseClient):
         Returns:
             Response JSON dict from post_order.
         """
-        order_args = OrderArgs(
-            token_id=token_id,
-            price=price,
-            size=size,
-            side=side,
-        )
-        options: Optional[PartialCreateOrderOptions] = None
-        if tick_size is not None or neg_risk is not None:
-            options = PartialCreateOrderOptions(
-                tick_size=tick_size,
-                neg_risk=neg_risk,
+        def _blocking_trade_execution():
+            """Helper function to run the blocking code."""
+            order_args = OrderArgs(
+                token_id=token_id,
+                price=price,
+                size=size,
+                side=side,
             )
-        signed = self.clob_client.create_order(order_args, options)
-        return self.clob_client.post_order(signed, order_type)
+            options: Optional[PartialCreateOrderOptions] = None
+            if tick_size is not None or neg_risk is not None:
+                options = PartialCreateOrderOptions(
+                    tick_size=tick_size,
+                    neg_risk=neg_risk,
+                )
+            signed = self.clob_client.create_order(order_args, options)
+            return self.clob_client.post_order(signed, order_type)
+
+        return await asyncio.to_thread(_blocking_trade_execution)
+
 
     def cancel_order(self, order_id: str) -> Dict[str, Any]:
         """

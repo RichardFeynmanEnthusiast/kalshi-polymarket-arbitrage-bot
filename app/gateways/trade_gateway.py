@@ -18,7 +18,7 @@ class TradeGateway:
         self.kalshi = kalshi_http
         self.polymarket = polymarket_http
 
-    def place_kalshi_order(
+    async def place_kalshi_order(
             self,
             ticker: str,
             side: KalshiSide,
@@ -32,7 +32,7 @@ class TradeGateway:
         Kalshi requires order sizes to be whole integers and prices in cents.
         """
         price_param = {"yes_price": price_in_cents} if side == KalshiSide.YES else {"no_price": price_in_cents}
-        resp = self.kalshi.create_order(
+        resp = await self.kalshi.create_order(
             action=action,
             side=side.value,
             type="limit",
@@ -44,7 +44,7 @@ class TradeGateway:
 
         return self.process_raw_kalshi_order(resp, trade_size=Decimal(count))
 
-    def place_polymarket_order(
+    async def place_polymarket_order(
             self,
             token_id: str,
             price: Decimal,
@@ -55,7 +55,7 @@ class TradeGateway:
         Places a Fill-Or-Kill (FOK) limit order on Polymarket.
         """
 
-        resp = self.polymarket.place_order(
+        resp = await self.polymarket.place_order(
             token_id=token_id,
             price=float(price),
             size=size,
