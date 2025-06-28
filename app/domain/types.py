@@ -15,7 +15,7 @@ class KalshiOrder(BaseModel):
     no_price: Optional[int] = None
     order_id: Optional[str] = None
     side: Optional[str] = None
-    status: str # trade can possibly be resent so we don't freeze the status
+    status: str  # trade can possibly be resent so we don't freeze the status
     ticker: str
     type: Optional[str] = None
     user_id: Optional[str] = None
@@ -24,17 +24,20 @@ class KalshiOrder(BaseModel):
 
     model_config = ConfigDict(extra='allow')
 
+
 class PolymarketOrder(BaseModel):
     errorMsg: Optional[str] = None
     orderID: Optional[str] = None
     takerAmount: Optional[str] = None
     makingAmount: Optional[str] = None
-    status: str 
+    status: str
     transactionsHashes: Optional[List[str]] = None
     success: bool = Field(default=False)
     trade_size: Optional[Decimal] = None
+    token_id: Optional[str] = None
 
     model_config = ConfigDict(extra='ignore')
+
 
 class TradeDetails(BaseModel):
     """
