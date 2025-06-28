@@ -18,16 +18,17 @@ from app.services.trade_storage import TradeStorage
 from app.utils.kalshi_client_factory import KalshiClientFactory
 from app.utils.polymarket_client_factory import PolymarketClientFactory
 
+
 async def run_live_opportunity_trader(orchestrator: FletcherOrchestrator, market_tuples: List[tuple]):
     """
     Starts the main application orchestrator for a specific set of markets.
     """
     logger = logging.getLogger(__name__)
     logger.info("Starting Fletcher Orchestrator...")
-    await orchestrator.run_live_trading_service(market_tuples=market_tuples, dry_run=True)
+    await orchestrator.run_live_trading_service(market_tuples=market_tuples, dry_run=True, cool_down_seconds=5)
+
 
 def get_venue_balances(clob_http_client, kalshi_http_client) -> dict:
-
     try:
         usdc_e_bal, matic_bal = clob_http_client.get_starting_balances()
         raw_kalshi_balance = kalshi_http_client.get_balance()
@@ -63,8 +64,9 @@ if __name__ == "__main__":
     kalshi_http, kalshi_wss = factory.create_both_clients()
 
     balance_dict = get_venue_balances(clob_client, kalshi_http)
-    logger.info(f"Polymarket USDC.e balance: {balance_dict['poly_usdc_e_bal']}, matic balance: {balance_dict['poly_matic_bal']}")
-    logger.info(f"Kalshi balance {balance_dict['kalshi_balance']}")
+    logger.info(
+        f"Polymarket USDC.e balance: {balance_dict['poly_usdc_e_bal']:.2f}, matic balance: {balance_dict['poly_matic_bal']:.4f}")
+    logger.info(f"Kalshi balance: ${balance_dict['kalshi_balance']:.2f}")
 
     # Create the central message bus
     bus = MessageBus()
@@ -83,7 +85,8 @@ if __name__ == "__main__":
     market_manager = MarketManager(bus)
     # Create trade storage service
     automatic_flush_minutes = 30
-    trade_storage = TradeStorage(bus=bus, trade_repo=trade_repo, attempted_opportunities_repo=attempted_opps_repo, batch_size=100,flush_interval_seconds=automatic_flush_minutes*60)
+    trade_storage = TradeStorage(bus=bus, trade_repo=trade_repo, attempted_opportunities_repo=attempted_opps_repo,
+                                 batch_size=100, flush_interval_seconds=automatic_flush_minutes * 60)
 
     printer = None
     if ENABLE_DIAGNOSTIC_PRINTER:
@@ -97,7 +100,7 @@ if __name__ == "__main__":
         poly_wss_client=clob_wss_client,
         kalshi_wss=kalshi_wss,
         matches_repo=matches_repo,
-        attempted_opps_repo= attempted_opps_repo,
+        attempted_opps_repo=attempted_opps_repo,
         trade_repo=trade_repo,
         poly_gateway=poly_gateway,
         kalshi_gateway=kalshi_gateway,
@@ -113,7 +116,7 @@ if __name__ == "__main__":
         # log closing balances
         balance_dict = get_venue_balances(clob_client, kalshi_http)
         logger.info(
-            f"Closing Polymarket USDC.e balance: {balance_dict['poly_usdc_e_bal']}, matic balance: {balance_dict['poly_matic_bal']}")
-        logger.info(f"Closing Kalshi balance {balance_dict['kalshi_balance']}")
+            f"Closing Polymarket USDC.e balance: {balance_dict['poly_usdc_e_bal']:.2f}, matic balance: {balance_dict['poly_matic_bal']:.4f}")
+        logger.info(f"Closing Kalshi balance: ${balance_dict['kalshi_balance']:.2f}")
     except KeyboardInterrupt | SystemExit:
-        logger.info("Application shutting down...") # this code is never reached
+        logger.info("Application shutting down...")

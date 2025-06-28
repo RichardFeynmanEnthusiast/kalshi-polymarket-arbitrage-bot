@@ -26,10 +26,19 @@ class MarketManager(IMarketStateQuerier):
         self.bus.subscribe(OrderBookSnapshotReceived, self._handle_snapshot)
         self.bus.subscribe(OrderBookDeltaReceived, self._handle_delta)
 
-
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
+
+    def reset(self):
+        """
+        Clears the state of all managed markets, effectively resetting all order books.
+        This is called by the orchestrator during a cool-down cycle.
+        """
+        for market_state in self.market_states.values():
+            market_state.reset()
+        self.logger.info("MarketManager state for all markets has been reset")
+
     def get_market_state(self, market_id: str) -> Optional[MarketState]:
         return self.market_states.get(market_id)
 

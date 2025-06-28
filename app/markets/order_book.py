@@ -20,6 +20,7 @@ class PriceLevel(BaseModel):
     price: Money = Field(..., description="Price at this level")
     size: Money = Field(..., description="Quantity available for this level")
 
+
 class Orderbook:
     """
     Maintains the complete, sorted order book for a single market.
@@ -33,6 +34,14 @@ class Orderbook:
         self.bids: SortedDict[Decimal] = SortedDict(lambda price: -price)
         self.asks: SortedDict[Decimal] = SortedDict()
         self.last_update: datetime = datetime.now(timezone.utc)
+
+    def clear(self):
+        """
+        Clears all bids and asks from the order book.
+        """
+        self.bids.clear()
+        self.asks.clear()
+        self.last_update = datetime.now(timezone.utc)
 
     def apply_update(self, side: str, price: Decimal, size: Decimal) -> None:
         """
@@ -101,6 +110,7 @@ class Orderbook:
         self.bids.clear()
         self.asks.clear()
         self.last_update = datetime.now(timezone.utc)
+
 
 class BinaryOrderBook(BaseModel):
     """
@@ -208,7 +218,7 @@ class BinaryOrderBook(BaseModel):
     def from_polymarket_http_orderbook(
             cls,
             raw_data: List[Any],
-            kalshi_yes_index : int,
+            kalshi_yes_index: int,
             fetched_at: datetime | None = None,
     ) -> Optional["BinaryOrderBook"]:
         """
@@ -220,27 +230,31 @@ class BinaryOrderBook(BaseModel):
         'kalshi_yes_index' defines which index in the polymarket orderbook array holds the equivalent yes orderbook in kalshi market
         `condition_ids` holds the token ID for each side.
         """
-        first_side : OrderBookSummary = raw_data[kalshi_yes_index] # maps to the 'yes' orderbook in kalshi
-        second_side : OrderBookSummary = raw_data[1-kalshi_yes_index]
+        first_side: OrderBookSummary = raw_data[kalshi_yes_index]  # maps to the 'yes' orderbook in kalshi
+        second_side: OrderBookSummary = raw_data[1 - kalshi_yes_index]
         if first_side is None or second_side is None:
             return None
 
         first_side_bids = sorted(
-            [PriceLevel(price=Decimal(order_summary.price), size=Decimal(order_summary.size)) for order_summary in first_side.bids],
+            [PriceLevel(price=Decimal(order_summary.price), size=Decimal(order_summary.size)) for order_summary in
+             first_side.bids],
             key=lambda lv: lv.price,
             reverse=True
         )
         second_side_bids = sorted(
-            [PriceLevel(price=Decimal(order_summary.price), size=Decimal(order_summary.size)) for order_summary in second_side.bids],
+            [PriceLevel(price=Decimal(order_summary.price), size=Decimal(order_summary.size)) for order_summary in
+             second_side.bids],
             key=lambda lv: lv.price,
             reverse=True
         )
         first_side_asks = sorted(
-            [PriceLevel(price=Decimal(order_summary.price), size=Decimal(order_summary.size)) for order_summary in first_side.asks],
+            [PriceLevel(price=Decimal(order_summary.price), size=Decimal(order_summary.size)) for order_summary in
+             first_side.asks],
             key=lambda lv: lv.price
         )
         second_side_asks = sorted(
-            [PriceLevel(price=Decimal(order_summary.price), size=Decimal(order_summary.size)) for order_summary in second_side.asks],
+            [PriceLevel(price=Decimal(order_summary.price), size=Decimal(order_summary.size)) for order_summary in
+             second_side.asks],
             key=lambda lv: lv.price
         )
 
