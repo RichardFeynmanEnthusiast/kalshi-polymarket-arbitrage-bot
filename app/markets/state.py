@@ -28,6 +28,13 @@ class MarketOutcomes(BaseModel):
             return self.no
         return None
 
+    def reset(self):
+        """Resets the order books for both YES and NO outcomes"""
+        if self.yes:
+            self.yes.clear()
+        if self.no:
+            self.no.clear()
+
     def apply_update_from_delta(self, update: OrderBookDeltaReceived) -> bool:
         """
         Applies a normalized update to the correct book (yes or no) and
@@ -99,3 +106,8 @@ class MarketState(BaseModel):
         if yes_bid_price is None:
             return None
         return Decimal('1.0') - yes_bid_price
+
+    def reset(self):
+        """Resets the outcomes for all platforms"""
+        for platform_outcomes in self.platforms.values():
+            platform_outcomes.reset()

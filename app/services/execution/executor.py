@@ -4,7 +4,7 @@ import uuid
 from decimal import Decimal
 
 from app.domain.events import ExecuteTrade, ArbTradeResultReceived, StoreTradeResults, TradeFailed, \
-    TradeAttemptCompleted
+    TradeAttemptCompleted, ArbitrageTradeSuccessful
 from app.domain.models.opportunity import ArbitrageOpportunity
 from app.domain.primitives import Platform, KalshiSide, PolySide
 from app.domain.types import TradeDetails
@@ -139,7 +139,6 @@ async def handle_trade_response(kalshi_result, polymarket_result, category, oppo
     """
     This handler processes the data and publishes the processed data to the bus.
     """
-    print("handle trade response called")
     is_kalshi_error = isinstance(kalshi_result, Exception)
     is_polymarket_error = isinstance(polymarket_result, Exception)
 
@@ -187,6 +186,11 @@ async def handle_trade_response(kalshi_result, polymarket_result, category, oppo
             error_message=str(polymarket_result)
         )
         await publish_trade_failed(event)
+
+    # If both legs succeeded, publish the event to trigger the application reset
+    if not is_kalshi_error and not is_polymarket_error:
+        logger.info("Both trade legs succeeded. Publishing ArbitrageTradeSuccessful event.")
+        await _bus.publish(ArbitrageTradeSuccessful())
 
     # Signal that the entire trade execution process is complete, unlocking the arbitrage monitor
     await _bus.publish(TradeAttemptCompleted())

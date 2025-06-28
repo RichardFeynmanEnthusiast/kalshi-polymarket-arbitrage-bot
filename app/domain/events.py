@@ -116,3 +116,10 @@ class TradeAttemptCompleted(BaseEvent):
     new arbitrage opportunities
     """
     pass
+
+
+class ArbitrageTradeSuccessful(BaseEvent):
+    """
+    Event published when both legs of an arbitrage trade succeed.
+    """
+    pass
