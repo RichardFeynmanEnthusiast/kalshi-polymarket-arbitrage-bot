@@ -76,6 +76,8 @@ This event-driven flow makes the system incredibly flexible and resilient. We ca
 3.  **Install Dependencies**
     ```bash
     pip install -r requirements.txt
+    pip install "git+ssh://git@{your_host}/bigmencho/on-tempo.git@main#egg=shared_infra&subdirectory=shared_libraries/shared_infrastructure_container"
+    pip install "git+ssh://git@{your_host}/bigmencho/on-tempo.git@main#egg=shared_wallets&subdirectory=shared_libraries/shared_wallets_container"
     ```
 
 4.  **Configure Environment Variables**

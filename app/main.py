@@ -3,10 +3,11 @@ import logging.config
 from typing import List
 
 from app.clients.polymarket.gamma_http import PolymGammaClient
-from app.clients.supabase import SupabaseClient
+from shared_infra.supabase_setup import supabase_client
 from app.gateways.kalshi_gateway import KalshiGateway
 from app.gateways.polymarket_gateway import PolymarketGateway
 from app.settings.logging_config import LOGGING_CONFIG
+from app.settings.settings import settings
 from app.markets.manager import MarketManager
 from app.message_bus import MessageBus
 from app.orchestration.fletcher_orchestrator import FletcherOrchestrator
@@ -54,7 +55,7 @@ if __name__ == "__main__":
     ENABLE_DIAGNOSTIC_PRINTER = False
 
     # --- 1. Initialize core dependencies (clients, bus) ---
-    db_con = SupabaseClient()
+    db_con = supabase_client.SupabaseClient(settings.SUPABASE_URL, settings.SUPABASE_KEY)
     gamma_client = PolymGammaClient()
     # use factories to create authenticated clients
     polymarket_factory = PolymarketClientFactory()
