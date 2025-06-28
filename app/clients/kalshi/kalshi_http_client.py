@@ -50,8 +50,18 @@ class KalshiHttpClient(KalshiBaseClient):
             # Raise an HTTPError with the new, more informative message.
             raise requests.exceptions.HTTPError(error_message, response=response)
 
+    def post(self, path: str, body: dict) -> Any:
+        """Performs an authenticated POST request to the Kalshi API."""
+        self.rate_limit()
+        response = requests.post(
+            self.host + path,
+            json=body,
+            headers=self.request_headers("POST", path)
+        )
+        self.raise_if_bad_response(response)
+        return response.json()
 
-    async def post(self, path: str, body: dict) -> Any:
+    async def async_post(self, path: str, body: dict) -> Any:
         """Performs an authenticated POST request to the Kalshi API."""
         self.rate_limit()
         headers = self.request_headers("POST", path)
@@ -299,7 +309,7 @@ class KalshiHttpClient(KalshiBaseClient):
             body["sell_position_floor"] = sell_position_floor
 
         # Send the request
-        return await self.post(f"{self.portfolio_url}/orders", body)
+        return await self.async_post(f"{self.portfolio_url}/orders", body)
 
     def get_orders(
             self,
