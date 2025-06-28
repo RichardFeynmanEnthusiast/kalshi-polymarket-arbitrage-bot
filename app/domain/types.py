@@ -5,6 +5,7 @@ from typing import Optional, List
 from pydantic import BaseModel, Field, ConfigDict
 
 from app.domain.primitives import Platform
+from shared_wallets.domain.models import ExchangeWallet
 
 
 class KalshiOrder(BaseModel):
@@ -50,3 +51,13 @@ class TradeDetails(BaseModel):
     kalshi_ticker: Optional[str] = None
     kalshi_side: Optional[str] = None
     polymarket_token_id: Optional[str] = None
+
+class Wallets(BaseModel):
+    """
+    Class to hold a user's exchange wallets.
+    """
+    kalshi_wallet : ExchangeWallet
+    polymarket_wallet : ExchangeWallet
+
+    class Config:
+        arbitrary_types_allowed = True
