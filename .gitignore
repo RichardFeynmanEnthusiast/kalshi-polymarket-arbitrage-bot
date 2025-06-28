@@ -9,4 +9,5 @@ pytest_cache/
 .venv
 logs/
 .env
-private-keys/.DS_Store
+private-keys/
+.DS_Store
