@@ -1,6 +1,7 @@
+import asyncio
 import unittest
 from decimal import Decimal
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, AsyncMock
 import uuid
 
 from app.domain.primitives import KalshiSide
@@ -15,7 +16,7 @@ class TestTradeRepository(unittest.TestCase):
         Set up mock clients and the repository instance before each test.
         This is now consistent with the other test files.
         """
-        self.mock_kalshi_http = MagicMock()
+        self.mock_kalshi_http = AsyncMock()
         self.mock_polymarket_http = MagicMock()
         self.trade_repository = TradeGateway(self.mock_kalshi_http, self.mock_polymarket_http)
         self.client_order_id = str(uuid.uuid4())
@@ -24,6 +25,9 @@ class TestTradeRepository(unittest.TestCase):
         """
         Tests that place_kalshi_order calls the underlying client with correct parameters.
         """
+        asyncio.run(self.async_test_place_kalshi_order_happy_path())
+
+    async def async_test_place_kalshi_order_happy_path(self):
         # Arrange
         ticker = "TEST-TICKER-24"
         price_in_cents = 68
@@ -37,7 +41,7 @@ class TestTradeRepository(unittest.TestCase):
         self.mock_kalshi_http.create_order.return_value = expected_response_data
 
         # Act
-        self.trade_repository.place_kalshi_order(
+        await self.trade_repository.place_kalshi_order(
             ticker=ticker,
             side=KalshiSide.YES,
             count=10,
@@ -60,13 +64,16 @@ class TestTradeRepository(unittest.TestCase):
         """
         Tests that an exception from the client is propagated.
         """
+        asyncio.run(self.async_test_kalshi_create_order_raises_exception())
+
+    async def async_test_kalshi_create_order_raises_exception(self):
         # Arrange
         from requests.exceptions import HTTPError
         self.mock_kalshi_http.create_order.side_effect = HTTPError("400 Client Error: Bad Request")
 
         # Act & Assert
         with self.assertRaises(HTTPError):
-            self.trade_repository.place_kalshi_order(
+            await self.trade_repository.place_kalshi_order(
                 ticker="TEST-TICKER-24",
                 side=KalshiSide.NO,
                 count=1,
