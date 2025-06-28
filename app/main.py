@@ -119,5 +119,5 @@ if __name__ == "__main__":
         logger.info(
             f"Closing Polymarket USDC.e balance: {balance_dict['poly_usdc_e_bal']:.2f}, matic balance: {balance_dict['poly_matic_bal']:.4f}")
         logger.info(f"Closing Kalshi balance: ${balance_dict['kalshi_balance']:.2f}")
-    except KeyboardInterrupt | SystemExit:
+    except (KeyboardInterrupt,  SystemExit):
         logger.info("Application shutting down...")
