@@ -1,0 +1,12 @@
+# Byte-compiled / optimized / DLL files
+*.py[cod]
+*.py[cod].DS_Store
+__pycache__/
+pytest_cache/
+.pytest_cache/
+# Ignore virtual environment folders (example)
+.idea/
+.venv
+logs/
+.env
+private-keys/.DS_Store
