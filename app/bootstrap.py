@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from typing import List, Coroutine
 
@@ -25,6 +26,7 @@ def bootstrap(
         trade_repo: TradeGateway,
         trade_storage: TradeStorage,
         dry_run: bool,
+        shutdown_event: asyncio.Event,
 ) -> List[Coroutine]:
     """
     The Composition Root. Wires together the application's components.
@@ -44,8 +46,13 @@ def bootstrap(
         trade_repo=trade_repo,
         dry_run=dry_run,
         bus=bus,
+        shutdown_event=shutdown_event,
     )
-    unwinder.initialize_unwinder(trade_gateway=trade_repo, bus=bus)
+    unwinder.initialize_unwinder(
+        trade_gateway=trade_repo,
+        bus=bus,
+        shutdown_event=shutdown_event,
+    )
 
     # Start background task for service
     # Subscribe handlers to events and commands on the message bus

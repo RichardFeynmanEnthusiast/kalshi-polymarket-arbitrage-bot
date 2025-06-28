@@ -60,6 +60,7 @@ class FletcherOrchestrator:
         self.markets_config: List[Dict] = []
         self.market_pairs: List[MarketPair] = []
         self.cool_down_seconds: int = 5
+        self.shutdown_event = asyncio.Event()
 
     async def run_live_trading_service(self, market_tuples: List[tuple], dry_run: bool = True, cool_down_seconds: int = 5):
         """The main entry point to configure and run the application."""
@@ -77,7 +78,8 @@ class FletcherOrchestrator:
             markets_config=self.markets_config,
             trade_repo=self.trade_repo,
             trade_storage=self.trade_storage,
-            dry_run=dry_run
+            dry_run=dry_run,
+            shutdown_event=self.shutdown_event,
         )
 
         self.bus.subscribe(ArbitrageTradeSuccessful, self._handle_successful_trade_and_reset)
@@ -196,6 +198,12 @@ class FletcherOrchestrator:
 
         return matched_markets
 
+    async def _shutdown_monitor(self):
+        """Waits for the shutdown event and then stops all tasks."""
+        await self.shutdown_event.wait()
+        self.logger.critical("Shutdown signal received. Stopping all services.")
+        await self.stop()
+
     async def _start(self, core_coroutines: List[Coroutine]):
         """Creates and manages all runtime tasks from the bootstrapped coroutines."""
         if self._running:
@@ -211,20 +219,22 @@ class FletcherOrchestrator:
         if self.printer:
             self._tasks["printer_task"] = asyncio.create_task(self.printer.run_printer_service())
         self._tasks["flush_task"] = asyncio.create_task(self.trade_storage.start())
+        self._tasks["shutdown_monitor"] = asyncio.create_task(self._shutdown_monitor())
 
-        # Instead of gathering all tasks, we only await the most critical one (the bus).
-        # This prevents the cancellation of resettable tasks (like WSS clients)
-        # from shutting down the entire application.
-        critical_task = self._tasks["message_bus"]
         self.logger.info(f"Fletcher Orchestrator started all tasks: {list(self._tasks.keys())}")
-        self.logger.info(f"Now monitoring critical task '{critical_task.get_name()}' for application lifecycle.")
+
+        tasks_to_await = [
+            task for name, task in self._tasks.items()
+            if name not in ("kalshi_connect", "poly_connect")
+        ]
 
         try:
-            await critical_task
+            # We only await the critical tasks. The WSS tasks can be managed separately.
+            await asyncio.gather(*tasks_to_await)
         except asyncio.CancelledError:
-            self.logger.info("Orchestrator's critical task was cancelled.")
+            self.logger.info("Orchestrator's main tasks were cancelled.")
         finally:
-            # If the critical task stops for any reason, initiate a full shutdown.
+            # If any of the critical tasks stop, initiate a full shutdown.
             await self.stop()
 
     async def stop(self):

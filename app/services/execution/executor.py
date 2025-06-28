@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 # Dependencies are stored at the module level and injected once at startup.
 _trade_repo: TradeGateway
 _bus: MessageBus
+_shutdown_event: asyncio.Event
 _dry_run: bool = False
 _max_trade_size: int = 50
 
@@ -25,15 +26,17 @@ _max_trade_size: int = 50
 def initialize_trade_executor(
         trade_repo: TradeGateway,
         bus: MessageBus,
+        shutdown_event: asyncio.Event,
         dry_run: bool = False,
         max_trade_size: int = 50,
 ):
     """Injects dependencies into the trade execution handlers module."""
-    global _trade_repo, _dry_run, _max_trade_size, _bus
+    global _trade_repo, _dry_run, _max_trade_size, _bus, _shutdown_event
     _bus = bus
     _trade_repo = trade_repo
     _dry_run = dry_run
     _max_trade_size = max_trade_size
+    _shutdown_event = shutdown_event
     if _dry_run:
         logger.warning("TradeExecutor is in DRY RUN mode. No real orders will be placed.")
     logger.info("Trade executor handlers initialized.")
@@ -153,7 +156,13 @@ async def handle_trade_response(kalshi_result, polymarket_result, category, oppo
     )
     await store_trade(StoreTradeResults(arb_trade_results=arb_trade_result))
 
-    # Unwind Logic
+    # Scenario: Both legs failed. Trigger application shutdown.
+    if is_kalshi_error and is_polymarket_error:
+        logger.critical("Both trade legs failed. Triggering application shutdown.")
+        _shutdown_event.set()
+        return  # Stop further processing
+
+    # Scenario: Partial failure. Trigger unwind but defer shutdown to unwinder.
     if is_kalshi_error and not is_polymarket_error:
         logger.warning("Kalshi trade leg failed, Polymarket succeeded. Triggering unwind.")
         successful_leg = TradeDetails(
@@ -192,8 +201,9 @@ async def handle_trade_response(kalshi_result, polymarket_result, category, oppo
         logger.info("Both trade legs succeeded. Publishing ArbitrageTradeSuccessful event.")
         await _bus.publish(ArbitrageTradeSuccessful())
 
-    # Signal that the entire trade execution process is complete, unlocking the arbitrage monitor
-    await _bus.publish(TradeAttemptCompleted())
+    # If the trade was not a total failure, signal completion to unlock the monitor.
+    if not (is_kalshi_error and is_polymarket_error):
+        await _bus.publish(TradeAttemptCompleted())
 
 
 async def publish_trade_failed(event: TradeFailed):
