@@ -1,9 +1,9 @@
 import unittest
-from unittest.mock import MagicMock, AsyncMock, patch
+from unittest.mock import MagicMock, AsyncMock
 
 from app.domain.models.opportunity import ArbitrageOpportunity
 from app.domain.primitives import Platform
-from app.domain.events import StoreTradeResults
+from app.domain.events import StoreTradeResults, ExecuteTrade, TradeAttemptCompleted
 from app.gateways.trade_gateway import TradeGateway
 from app.services.execution import executor
 from decimal import Decimal
@@ -53,8 +53,11 @@ class TestExecutor(unittest.IsolatedAsyncioTestCase):
     async def asyncTearDown(self):
         self.mock_bus.stop()
 
-    async def test_handle_trade_response_calls_store_trade_result(self):
-
+    async def test_handle_trade_response_publishes_required_messages(self):
+        """
+        Verify that handle_trade_response publishes both StoreTradeResults
+        and the essential TradeAttemptCompleted to unlock the monitor.
+        """
         await executor.handle_trade_response(
             kalshi_result=self.dummy_valid_kalshi_response,
             polymarket_result=self.dummy_poly_order_response,
@@ -62,10 +65,42 @@ class TestExecutor(unittest.IsolatedAsyncioTestCase):
             opportunity=self.dummy_opportunity
         )
 
-        self.mock_bus.publish.assert_called_once()
-        published_command = self.mock_bus.publish.call_args[0][0]
+        # Assert that publish was called twice
+        self.assertEqual(self.mock_bus.publish.call_count, 2)
 
-        self.assertEqual(published_command.arb_trade_results.opportunity, self.dummy_opportunity)
+        # Check that both expected message types were published
+        published_messages = [call.args[0] for call in self.mock_bus.publish.call_args_list]
+        message_types = [type(msg) for msg in published_messages]
+        self.assertIn(StoreTradeResults, message_types)
+        self.assertIn(TradeAttemptCompleted, message_types)
+
+        # Optional: More detailed check on the StoreTradeResults command
+        store_trade_command = next(
+            (msg for msg in published_messages if isinstance(msg, StoreTradeResults)),
+            None
+        )
+        self.assertIsNotNone(store_trade_command)
+        self.assertEqual(store_trade_command.arb_trade_results.opportunity, self.dummy_opportunity)
+
+    async def test_handle_execute_trade_unlocks_on_zero_size(self):
+        """
+        Verify that if a trade is not executed due to zero size,
+        it still publishes TradeAttemptCompleted to unlock the monitor.
+        """
+        # Arrange: An opportunity with zero potential size
+        zero_size_opportunity = self.dummy_opportunity.model_copy(
+            update={"potential_trade_size": Decimal("0")}
+        )
+        command = ExecuteTrade(opportunity=zero_size_opportunity)
+
+        # Act
+        await executor.handle_execute_trade(command)
+
+        # Assert: The bus was called once to unlock the monitor
+        self.mock_bus.publish.assert_called_once()
+        published_event = self.mock_bus.publish.call_args[0][0]
+        self.assertIsInstance(published_event, TradeAttemptCompleted)
+
 
 if __name__ == '__main__':
     unittest.main()

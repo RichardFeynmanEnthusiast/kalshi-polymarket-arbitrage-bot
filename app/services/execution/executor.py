@@ -3,13 +3,13 @@ import logging
 import uuid
 from decimal import Decimal
 
-from app.domain.events import ExecuteTrade, ArbTradeResultReceived, StoreTradeResults, TradeFailed
+from app.domain.events import ExecuteTrade, ArbTradeResultReceived, StoreTradeResults, TradeFailed, \
+    TradeAttemptCompleted
 from app.domain.models.opportunity import ArbitrageOpportunity
 from app.domain.primitives import Platform, KalshiSide, PolySide
 from app.domain.types import TradeDetails
 from app.gateways.trade_gateway import TradeGateway
 from app.message_bus import MessageBus
-
 
 # --- Module Setup ---
 
@@ -23,10 +23,10 @@ _max_trade_size: int = 50
 
 
 def initialize_trade_executor(
-    trade_repo: TradeGateway,
-    bus: MessageBus,
-    dry_run: bool = False,
-    max_trade_size: int = 50,
+        trade_repo: TradeGateway,
+        bus: MessageBus,
+        dry_run: bool = False,
+        max_trade_size: int = 50,
 ):
     """Injects dependencies into the trade execution handlers module."""
     global _trade_repo, _dry_run, _max_trade_size, _bus
@@ -52,6 +52,8 @@ async def handle_execute_trade(command: ExecuteTrade):
 
     if trade_size <= 0:
         logger.info(f"Arbitrage opportunity for {opportunity.market_id} found, but with zero potential trade size.")
+        # If we don't trade, we must unlock the monitor
+        await _bus.publish(TradeAttemptCompleted())
         return
 
     logger.info(
@@ -73,7 +75,7 @@ async def handle_execute_trade(command: ExecuteTrade):
 
     kalshi_result, polymarket_result = await asyncio.gather(kalshi_task, polymarket_task, return_exceptions=True)
 
-    # Publish arbitrage trade results to the bus 
+    # Publish arbitrage trade results to the bus
     await handle_trade_response(kalshi_result, polymarket_result, category="buy both", opportunity=opportunity)
 
 
@@ -92,6 +94,7 @@ async def _execute_kalshi_buy_yes(opportunity: ArbitrageOpportunity, size: int):
         count=size, price_in_cents=price_in_cents, client_order_id=str(uuid.uuid4())
     )
 
+
 async def _execute_kalshi_buy_no(opportunity: ArbitrageOpportunity, size: int):
     price_in_cents = int(opportunity.buy_no_price * 100)
     if _dry_run:
@@ -105,6 +108,7 @@ async def _execute_kalshi_buy_no(opportunity: ArbitrageOpportunity, size: int):
         count=size, price_in_cents=price_in_cents, client_order_id=str(uuid.uuid4())
     )
 
+
 async def _execute_polymarket_buy_yes(opportunity: ArbitrageOpportunity, size: int):
     if _dry_run:
         log_msg = f"Would place Polymarket order: BUY YES @ {opportunity.buy_yes_price} on token {opportunity.polymarket_yes_token_id}"
@@ -117,6 +121,7 @@ async def _execute_polymarket_buy_yes(opportunity: ArbitrageOpportunity, size: i
         size=float(size), side=PolySide.BUY
     )
 
+
 async def _execute_polymarket_buy_no(opportunity: ArbitrageOpportunity, size: int):
     if _dry_run:
         log_msg = f"Would place Polymarket order: BUY NO @ {opportunity.buy_no_price} on token {opportunity.polymarket_no_token_id}"
@@ -128,6 +133,7 @@ async def _execute_polymarket_buy_no(opportunity: ArbitrageOpportunity, size: in
         token_id=opportunity.polymarket_no_token_id, price=opportunity.buy_no_price,
         size=float(size), side=PolySide.BUY
     )
+
 
 async def handle_trade_response(kalshi_result, polymarket_result, category, opportunity: ArbitrageOpportunity):
     """
@@ -182,6 +188,9 @@ async def handle_trade_response(kalshi_result, polymarket_result, category, oppo
         )
         await publish_trade_failed(event)
 
+    # Signal that the entire trade execution process is complete, unlocking the arbitrage monitor
+    await _bus.publish(TradeAttemptCompleted())
+
 
 async def publish_trade_failed(event: TradeFailed):
     """
@@ -192,6 +201,7 @@ async def publish_trade_failed(event: TradeFailed):
         f"Successful leg: {event.successful_leg.platform.value}."
     )
     await _bus.publish(event)
+
 
 async def store_trade(command: StoreTradeResults):
     """
