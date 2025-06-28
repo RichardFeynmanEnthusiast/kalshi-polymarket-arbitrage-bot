@@ -87,7 +87,7 @@ async def _execute_kalshi_buy_yes(opportunity: ArbitrageOpportunity, size: int):
         return {"status": "dry_run", "ticker": opportunity.kalshi_ticker}
 
     logger.info(f"Placing Kalshi order: BUY YES @ {opportunity.buy_yes_price}")
-    return _trade_repo.place_kalshi_order(
+    return await _trade_repo.place_kalshi_order(
         ticker=opportunity.kalshi_ticker, side=KalshiSide.YES,
         count=size, price_in_cents=price_in_cents, client_order_id=str(uuid.uuid4())
     )
@@ -132,9 +132,8 @@ async def _execute_polymarket_buy_no(opportunity: ArbitrageOpportunity, size: in
 async def handle_trade_response(kalshi_result, polymarket_result, category, opportunity: ArbitrageOpportunity):
     """
     This handler processes the data and publishes the processed data to the bus.
-    args:
-        kalshi_result: KalshiOrder object or an exception
     """
+    print("handle trade response called")
     is_kalshi_error = isinstance(kalshi_result, Exception)
     is_polymarket_error = isinstance(polymarket_result, Exception)
 
