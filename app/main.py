@@ -1,11 +1,11 @@
 import asyncio
 import logging.config
+from decimal import Decimal
 from typing import List
 
 from shared_wallets.domain.models import Currency
 
 from app.clients.polymarket.gamma_http import PolymGammaClient
-from app.domain.types import Wallets
 from app.gateways.balance_data_gateway import BalanceDataGateway
 from app.services.operational.balance_service import BalanceService
 from shared_infra.supabase_setup import supabase_client
@@ -48,19 +48,16 @@ def main(minimum_balance = 2):
     kalshi_http, kalshi_wss = factory.create_both_clients()
 
     balance_gtwy = BalanceDataGateway(clob_http_client=clob_client, kalshi_http_client=kalshi_http)
-    balance_service = BalanceService(balance_gtwy)
+    balance_service = BalanceService(balance_gtwy, minimum_balance=Decimal(minimum_balance))
     try:
-        # handles 0 balance or null case
-        application_wallets: Wallets = balance_service.generate_new_wallets()
-        # handle business logic minimum
-        poly_usdc_balance = application_wallets.polymarket_wallet.get_balance(Currency.USDC_E).amount
-        poly_pol_balance = application_wallets.polymarket_wallet.get_balance(Currency.POL).amount
-        kalshi_balance = application_wallets.kalshi_wallet.get_balance(Currency.USD).amount
-        if poly_usdc_balance < minimum_balance or kalshi_balance < minimum_balance:
-            raise Exception(f"Balance too low to execute trades. Poly balance {poly_usdc_balance}")
+        balance_service.update_wallets()
+        poly_usdc_balance = balance_service.polymarket_wallet.get_balance(Currency.USDC_E).amount
+        poly_pol_balance = balance_service.polymarket_wallet.get_balance(Currency.POL).amount
+        kalshi_balance = balance_service.kalshi_wallet.get_balance(Currency.USD).amount
+        if not balance_service.has_enough_balance:
+            raise Exception(f"Balance too low to execute trades. Poly balance {poly_usdc_balance}. Kalshi balance {kalshi_balance}")
     except Exception as e:
         raise f"Failed to generate new wallets. Service stopping: {e}"
-    balance_service.set_wallets(application_wallets)
 
     logger.info(
         f"Polymarket USDC.e balance: {poly_usdc_balance:.2f}, "

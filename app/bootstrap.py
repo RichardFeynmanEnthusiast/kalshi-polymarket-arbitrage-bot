@@ -43,13 +43,13 @@ def bootstrap(
         market_manager=market_manager,
         bus=bus,
         markets_config=markets_config,
-        wallets=balance_service.get_wallets(),
     )
     executor.initialize_trade_executor(
         trade_repo=trade_repo,
         dry_run=dry_run,
         bus=bus,
         shutdown_event=shutdown_event,
+        balance_service=balance_service
     )
     unwinder.initialize_unwinder(
         trade_gateway=trade_repo,
