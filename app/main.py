@@ -33,18 +33,10 @@ async def run_live_opportunity_trader(orchestrator: FletcherOrchestrator, market
     logger.info("Starting Fletcher Orchestrator...")
     await orchestrator.run_live_trading_service(market_tuples=market_tuples, dry_run=True, cool_down_seconds=5)
 
-if __name__ == "__main__":
-    logging.config.dictConfig(LOGGING_CONFIG)
-    logger = logging.getLogger(__name__)
-
-    markets_to_trade = [
-        ("538932", "KXMAYORNYCPARTY-25-D")
-    ]
-
+def main(minimum_balance = 2):
     # --- CONFIGURATION FLAG ---
     # Set this to False to disable the order book printer.
     ENABLE_DIAGNOSTIC_PRINTER = False
-
     # --- 1. Initialize core dependencies (clients, bus) ---
     db_con = supabase_client.SupabaseClient(settings.SUPABASE_URL, settings.SUPABASE_KEY)
     gamma_client = PolymGammaClient()
@@ -57,13 +49,23 @@ if __name__ == "__main__":
 
     balance_gtwy = BalanceDataGateway(clob_http_client=clob_client, kalshi_http_client=kalshi_http)
     balance_service = BalanceService(balance_gtwy)
-    application_wallets : Wallets = balance_service.generate_new_wallets()
+    try:
+        # handles 0 balance or null case
+        application_wallets: Wallets = balance_service.generate_new_wallets()
+        # handle business logic minimum
+        poly_usdc_balance = application_wallets.polymarket_wallet.get_balance(Currency.USDC_E).amount
+        poly_pol_balance = application_wallets.polymarket_wallet.get_balance(Currency.POL).amount
+        kalshi_balance = application_wallets.kalshi_wallet.get_balance(Currency.USD).amount
+        if poly_usdc_balance < minimum_balance or kalshi_balance < minimum_balance:
+            raise Exception(f"Balance too low to execute trades. Poly balance {poly_usdc_balance}")
+    except Exception as e:
+        raise f"Failed to generate new wallets. Service stopping: {e}"
     balance_service.set_wallets(application_wallets)
 
     logger.info(
-        f"Polymarket USDC.e balance: {balance_service.get_wallets().polymarket_wallet.get_balance(Currency.USDC_E).amount:.2f}, "
-        f"matic balance: {balance_service.get_wallets().polymarket_wallet.get_balance(Currency.POL).amount:.2f}")
-    logger.info(f"Kalshi balance: ${balance_service.get_wallets().kalshi_wallet.get_balance(Currency.USD).amount:.2f}")
+        f"Polymarket USDC.e balance: {poly_usdc_balance:.2f}, "
+        f"matic balance: {poly_pol_balance:.2f}")
+    logger.info(f"Kalshi balance: ${kalshi_balance:.2f}")
 
     # Create the central message bus
     bus = MessageBus()
@@ -113,10 +115,18 @@ if __name__ == "__main__":
         asyncio.run(run_live_opportunity_trader(live_trader_service, markets_to_trade))
         # log closing balances
         logger.info(
-
             f"Polymarket USDC.e balance: {balance_service.get_wallets().polymarket_wallet.get_balance(Currency.USDC_E).amount:.2f}, "
             f"matic balance: {balance_service.get_wallets().polymarket_wallet.get_balance(Currency.POL).amount:.2f}")
         logger.info(
             f"Kalshi balance: ${balance_service.get_wallets().kalshi_wallet.get_balance(Currency.USD).amount:.2f}")
-    except (KeyboardInterrupt,  SystemExit):
+    except (KeyboardInterrupt, SystemExit):
         logger.info("Application shutting down...")
+
+if __name__ == "__main__":
+    logging.config.dictConfig(LOGGING_CONFIG)
+    logger = logging.getLogger(__name__)
+
+    markets_to_trade = [
+        ("538932", "KXMAYORNYCPARTY-25-D")
+    ]
+    main()
