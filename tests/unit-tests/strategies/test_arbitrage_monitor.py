@@ -33,7 +33,6 @@ class TestArbitrageMonitor(unittest.IsolatedAsyncioTestCase):
             market_manager=self.market_manager,
             bus=self.bus,
             markets_config=self.markets_config,
-            wallets=VALID_WALLETS
         )
         # Ensure the lock state is reset after each test for isolation
         self.addAsyncCleanup(self._reset_monitor_state)

@@ -87,6 +87,7 @@ class TestFletcherOrchestrator(unittest.IsolatedAsyncioTestCase):
             printer=None,
             trade_storage=self.mock_trade_storage,
             market_manager=self.mock_market_manager,
+            balance_service=MagicMock(),
         )
 
     def tearDown(self):

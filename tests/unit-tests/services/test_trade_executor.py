@@ -124,13 +124,12 @@ class TestExecutor(unittest.IsolatedAsyncioTestCase):
         balance_service = BalanceService(balance_data_gateway=self.mock_gateway,
                                          minimum_balance=Decimal(1.00))
         balance_service.set_wallets(VALID_WALLETS)
-
         executor.initialize_trade_executor(
             trade_repo=None,
             bus=self.mock_bus,
             shutdown_event=self.mock_shutdown_event,
             dry_run=False,
-            balance_service=balance_service,  # use your real one with mocked method
+            balance_service=balance_service,
         )
 
         command = ExecuteTrade(opportunity=zero_size_opportunity)
