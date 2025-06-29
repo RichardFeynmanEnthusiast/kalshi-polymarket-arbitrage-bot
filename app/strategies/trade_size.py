@@ -40,7 +40,7 @@ def calculate_trade_size(trade_size: Decimal) -> int:
     Returns:
         int: The calculated trade size after applying the square root and rounding down.
     """
-    if trade_size < 0:
+    if trade_size < Decimal('0'):
         return 0
     return int(trade_size.sqrt())
 
