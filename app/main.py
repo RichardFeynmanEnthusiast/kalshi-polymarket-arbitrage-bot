@@ -33,7 +33,7 @@ async def run_live_opportunity_trader(orchestrator: FletcherOrchestrator, market
     logger.info("Starting Fletcher Orchestrator...")
     await orchestrator.run_live_trading_service(market_tuples=market_tuples, dry_run=settings.DRY_RUN, cool_down_seconds=5)
 
-def main(minimum_balance = 2):
+def main(minimum_balance = settings.SHUTDOWN_BALANCE):
     # --- CONFIGURATION FLAG ---
     # Set this to False to disable the order book printer.
     ENABLE_DIAGNOSTIC_PRINTER = False
