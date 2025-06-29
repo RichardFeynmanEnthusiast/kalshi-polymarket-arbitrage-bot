@@ -31,7 +31,7 @@ async def run_live_opportunity_trader(orchestrator: FletcherOrchestrator, market
     """
     logger = logging.getLogger(__name__)
     logger.info("Starting Fletcher Orchestrator...")
-    await orchestrator.run_live_trading_service(market_tuples=market_tuples, dry_run=True, cool_down_seconds=5)
+    await orchestrator.run_live_trading_service(market_tuples=market_tuples, dry_run=settings.DRY_RUN, cool_down_seconds=5)
 
 if __name__ == "__main__":
     logging.config.dictConfig(LOGGING_CONFIG)
