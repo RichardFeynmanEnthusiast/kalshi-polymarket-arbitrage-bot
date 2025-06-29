@@ -1,12 +1,12 @@
 import unittest
 from typing import Dict
-from unittest.mock import Mock
 from decimal import Decimal
 
 from app.domain.types import Wallets
 from app.strategies.trade_size import get_trade_size, calculate_minimum_wallet_budget, calculate_trade__size
 from shared_wallets.domain.types import Currency, Money
 from shared_wallets.domain.models import ExchangeWallet, Exchange
+from tests.sample_data import POLYMARKET_WALLET, KALSHI_WALLET, VALID_WALLETS
 
 
 class TestTradeSizeCalculations(unittest.TestCase):
@@ -17,20 +17,10 @@ class TestTradeSizeCalculations(unittest.TestCase):
         Creates ExchangeWallet instances for each exchange and aggregates them into a Wallets instance.
         """
         # setup
-        kalshi_balance : Dict[Currency, Money] = {
-            Currency.USD: Money(Decimal("100.00"), Currency.USD),
-        }
-        polymarket_balance : Dict[Currency, Money] = {
-            Currency.USDC_E: Money(Decimal("50.00"), Currency.USDC_E),
-            Currency.POL: Money(Decimal("85.00"), Currency.POL),
-        }
-        self.polymarket_wallet = ExchangeWallet(exchange=Exchange.POLYMARKET, balances=polymarket_balance)
-        self.kalshi_wallet = ExchangeWallet(exchange=Exchange.KALSHI, balances=kalshi_balance)
+        self.polymarket_wallet = POLYMARKET_WALLET
+        self.kalshi_wallet = KALSHI_WALLET
 
-        self.wallets = Wallets(
-            kalshi_wallet=self.kalshi_wallet,
-            polymarket_wallet=self.polymarket_wallet,
-        )
+        self.wallets = VALID_WALLETS
 
     def test_calculate_trade__size_rounds_down(self):
         """

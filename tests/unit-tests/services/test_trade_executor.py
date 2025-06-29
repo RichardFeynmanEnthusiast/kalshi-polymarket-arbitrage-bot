@@ -9,7 +9,7 @@ from app.gateways.trade_gateway import TradeGateway
 from app.services.execution import executor
 from decimal import Decimal
 
-from tests.sample_data import DUMMY_VALID_KALSHI_ORDER_RESPONSE, DUMMY_VALID_POLYMARKET_ORDER_RESPONSE
+from tests.sample_data import DUMMY_VALID_KALSHI_ORDER_RESPONSE, DUMMY_VALID_POLYMARKET_ORDER_RESPONSE, VALID_WALLETS
 
 
 class TestExecutor(unittest.IsolatedAsyncioTestCase):
@@ -32,7 +32,6 @@ class TestExecutor(unittest.IsolatedAsyncioTestCase):
             bus=self.mock_bus,
             shutdown_event=self.mock_shutdown_event,
             dry_run=False,
-            max_trade_size=100
         )
 
         # Shared test data
@@ -112,7 +111,7 @@ class TestExecutor(unittest.IsolatedAsyncioTestCase):
         zero_size_opportunity = self.dummy_opportunity.model_copy(
             update={"potential_trade_size": Decimal("0")}
         )
-        command = ExecuteTrade(opportunity=zero_size_opportunity)
+        command = ExecuteTrade(opportunity=zero_size_opportunity, wallets=VALID_WALLETS)
 
         # Act
         await executor.handle_execute_trade(command)

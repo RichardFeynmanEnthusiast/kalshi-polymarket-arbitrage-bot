@@ -15,6 +15,7 @@ from app.message_bus import MessageBus
 from app.repositories.matches_repository import MatchesRepository
 from app.gateways.attempted_opportunities_gateway import AttemptedOpportunitiesGateway
 from app.gateways.trade_gateway import TradeGateway
+from app.services.operational.balance_service import BalanceService
 from app.services.operational.diagnostic_printer import DiagnosticPrinter
 from app.services.trade_storage import TradeStorage
 
@@ -38,6 +39,7 @@ class FletcherOrchestrator:
         printer: Optional[DiagnosticPrinter],
         trade_storage: TradeStorage,
         market_manager: MarketManager,
+        balance_service: BalanceService,
     ):
         self.logger = logging.getLogger(__name__)
         # --- Dependencies ---
@@ -53,6 +55,7 @@ class FletcherOrchestrator:
         self.trade_storage = trade_storage
         # Use the provided MarketManager instance, don't create a new one.
         self.market_manager = market_manager
+        self.balance_service = balance_service
 
         # --- State ---
         self._running = False
@@ -80,6 +83,7 @@ class FletcherOrchestrator:
             trade_storage=self.trade_storage,
             dry_run=dry_run,
             shutdown_event=self.shutdown_event,
+            balance_service=self.balance_service,
         )
 
         self.bus.subscribe(ArbitrageTradeSuccessful, self._handle_successful_trade_and_reset)

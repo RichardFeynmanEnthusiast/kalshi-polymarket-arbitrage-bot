@@ -10,7 +10,7 @@ def get_trade_size(wallets: Wallets, trade_opportunity_size : Decimal) -> int:
     Polymarket wallet balance, and the square root of the total opportunity size.
 
     Args:
-        wallets (Wallets): The wallets containing balances for Kalshi and Polymarket exchanges.
+        wallets (Wallets): The wallets containing balances for prediction market exchanges.
         trade_opportunity_size (Decimal): The size of the trade opportunity.
 
     Returns:

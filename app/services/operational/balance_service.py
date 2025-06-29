@@ -1,9 +1,11 @@
 import logging
 
-from app.message_bus import MessageBus
+from app.gateways.balance_data_gateway import BalanceDataGateway
 from app.domain.events import StoreTradeResults
+from app.domain.types import Wallets
+from shared_wallets.domain.types import Currency
+from shared_wallets.domain.models import ExchangeWallet, Exchange
 
-# log
 
 class BalanceService:
     """
@@ -14,11 +16,10 @@ class BalanceService:
     trade results.
     """
 
-    def __init__(self, polymarket_usdc_e: float, kalshi_balance: float, bus: MessageBus):
-        self.polymarket_usdc_e = polymarket_usdc_e
-        self.kalshi_balance = kalshi_balance
-        self.bus = bus
+    def __init__(self, balance_data_gateway: BalanceDataGateway):
         self.logger = logging.getLogger(__name__)
+        self._balance_data_gateway = balance_data_gateway
+        self._wallets = None
 
     def update_polymarket_balance(self, trade_result):
         """
@@ -37,6 +38,7 @@ class BalanceService:
         pass
 
     async def handle_trade_results_received(self, command: StoreTradeResults):
+
         if command.arb_trade_results.polymarket_order is not None:
             self.update_polymarket_balance(command.arb_trade_results)
         else:
@@ -47,3 +49,25 @@ class BalanceService:
         else:
             self.logger.warning(f"Kalshi trade with message id {command.arb_trade_results.message_id} is empty; skipping balance update for kalshi")
 
+    def generate_new_wallets(self) -> Wallets:
+        self.logger.info("Generating wallets...")
+        try:
+            currencies = self._balance_data_gateway.get_venue_balances()
+            kalshi_balance = {
+                Currency.USD : currencies[Currency.USD],
+            }
+            polymarket_balance = {
+                Currency.USDC_E : currencies[Currency.USDC_E],
+                Currency.POL: currencies[Currency.POL],
+            }
+            return Wallets(kalshi_wallet=ExchangeWallet(Exchange.KALSHI, kalshi_balance),
+                           polymarket_wallet=ExchangeWallet(Exchange.POLYMARKET, polymarket_balance))
+        except Exception as e:
+            raise e
+
+    def set_wallets(self, wallets: Wallets):
+        """ """
+        self._wallets = wallets
+
+    def get_wallets(self):
+        return self._wallets
