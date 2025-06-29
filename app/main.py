@@ -124,6 +124,6 @@ if __name__ == "__main__":
     logger = logging.getLogger(__name__)
 
     markets_to_trade = [
-        ("538932", "KXMAYORNYCPARTY-25-D")
+        ("556687", "KXMLBGAME-25JUN29MINDET-MIN")
     ]
     main()
