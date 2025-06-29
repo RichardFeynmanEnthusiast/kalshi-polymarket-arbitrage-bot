@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 
 from app.domain.models.opportunity import ArbitrageOpportunity
 from app.domain.primitives import Platform, SIDES
-from app.domain.types import KalshiOrder, PolymarketOrder, TradeDetails
+from app.domain.types import KalshiOrder, PolymarketOrder, TradeDetails, Wallets
 
 
 # --- Base Message Types ---
@@ -92,10 +92,10 @@ class ExecuteTrade(BaseCommand):
     """Command to instruct the execution service to place a trade."""
     opportunity: ArbitrageOpportunity
 
-
 class StoreTradeResults(BaseCommand):
     """Command to instruct the trade storage service to flush the trade results to the database"""
     arb_trade_results: ArbTradeResultReceived
+
 
 class TradeFailed(BaseEvent):
     """
@@ -106,3 +106,19 @@ class TradeFailed(BaseEvent):
     successful_leg: TradeDetails
     opportunity: ArbitrageOpportunity
     error_message: str
+
+
+class TradeAttemptCompleted(BaseEvent):
+    """
+    Event published after a trade attempt (success, partial failure, or full failure)
+    has been fully processed by the executor. This signals that the system is ready to evaluate
+    new arbitrage opportunities
+    """
+    pass
+
+
+class ArbitrageTradeSuccessful(BaseEvent):
+    """
+    Event published when both legs of an arbitrage trade succeed.
+    """
+    pass

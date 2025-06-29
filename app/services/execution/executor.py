@@ -2,14 +2,17 @@ import asyncio
 import logging
 import uuid
 from decimal import Decimal
+from typing import Callable, Any
 
-from app.domain.events import ExecuteTrade, ArbTradeResultReceived, StoreTradeResults, TradeFailed
+from app.domain.events import ExecuteTrade, ArbTradeResultReceived, StoreTradeResults, TradeFailed, \
+    TradeAttemptCompleted, ArbitrageTradeSuccessful
 from app.domain.models.opportunity import ArbitrageOpportunity
 from app.domain.primitives import Platform, KalshiSide, PolySide
 from app.domain.types import TradeDetails
 from app.gateways.trade_gateway import TradeGateway
 from app.message_bus import MessageBus
-
+from app.services.operational.balance_service import BalanceService
+from app.strategies.trade_size import get_trade_size
 
 # --- Module Setup ---
 
@@ -18,22 +21,28 @@ logger = logging.getLogger(__name__)
 # Dependencies are stored at the module level and injected once at startup.
 _trade_repo: TradeGateway
 _bus: MessageBus
+_shutdown_event: asyncio.Event
 _dry_run: bool = False
-_max_trade_size: int = 50
+_max_trade_size : Callable
+_balance_service: BalanceService
 
 
 def initialize_trade_executor(
-    trade_repo: TradeGateway,
-    bus: MessageBus,
-    dry_run: bool = False,
-    max_trade_size: int = 50,
+        trade_repo: TradeGateway,
+        bus: MessageBus,
+        shutdown_event: asyncio.Event,
+        balance_service: BalanceService,
+        max_trade_size: Callable = get_trade_size, # default strategy
+        dry_run: bool = False,
 ):
     """Injects dependencies into the trade execution handlers module."""
-    global _trade_repo, _dry_run, _max_trade_size, _bus
+    global _trade_repo, _dry_run, _max_trade_size, _bus, _shutdown_event, _balance_service
     _bus = bus
     _trade_repo = trade_repo
     _dry_run = dry_run
+    _balance_service = balance_service
     _max_trade_size = max_trade_size
+    _shutdown_event = shutdown_event
     if _dry_run:
         logger.warning("TradeExecutor is in DRY RUN mode. No real orders will be placed.")
     logger.info("Trade executor handlers initialized.")
@@ -47,11 +56,15 @@ async def handle_execute_trade(command: ExecuteTrade):
     from the old execute_buy_both_arbitrage method.
     """
     opportunity = command.opportunity
+    wallets = _balance_service.get_wallets()
     log_prefix = "[DRY RUN] " if _dry_run else ""
-    trade_size = int(min(Decimal(_max_trade_size), opportunity.potential_trade_size))
+    trade_size = _max_trade_size(wallets=wallets,trade_opportunity_size=opportunity.potential_trade_size, kalshi_fees =
+                                 opportunity.kalshi_fees)
 
     if trade_size <= 0:
         logger.info(f"Arbitrage opportunity for {opportunity.market_id} found, but with zero potential trade size.")
+        # If we don't trade, we must unlock the monitor
+        await _bus.publish(TradeAttemptCompleted())
         return
 
     logger.info(
@@ -73,7 +86,7 @@ async def handle_execute_trade(command: ExecuteTrade):
 
     kalshi_result, polymarket_result = await asyncio.gather(kalshi_task, polymarket_task, return_exceptions=True)
 
-    # Publish arbitrage trade results to the bus 
+    # Publish arbitrage trade results to the bus
     await handle_trade_response(kalshi_result, polymarket_result, category="buy both", opportunity=opportunity)
 
 
@@ -87,10 +100,11 @@ async def _execute_kalshi_buy_yes(opportunity: ArbitrageOpportunity, size: int):
         return {"status": "dry_run", "ticker": opportunity.kalshi_ticker}
 
     logger.info(f"Placing Kalshi order: BUY YES @ {opportunity.buy_yes_price}")
-    return _trade_repo.place_kalshi_order(
+    return await _trade_repo.place_kalshi_order(
         ticker=opportunity.kalshi_ticker, side=KalshiSide.YES,
         count=size, price_in_cents=price_in_cents, client_order_id=str(uuid.uuid4())
     )
+
 
 async def _execute_kalshi_buy_no(opportunity: ArbitrageOpportunity, size: int):
     price_in_cents = int(opportunity.buy_no_price * 100)
@@ -105,6 +119,7 @@ async def _execute_kalshi_buy_no(opportunity: ArbitrageOpportunity, size: int):
         count=size, price_in_cents=price_in_cents, client_order_id=str(uuid.uuid4())
     )
 
+
 async def _execute_polymarket_buy_yes(opportunity: ArbitrageOpportunity, size: int):
     if _dry_run:
         log_msg = f"Would place Polymarket order: BUY YES @ {opportunity.buy_yes_price} on token {opportunity.polymarket_yes_token_id}"
@@ -116,6 +131,7 @@ async def _execute_polymarket_buy_yes(opportunity: ArbitrageOpportunity, size: i
         token_id=opportunity.polymarket_yes_token_id, price=opportunity.buy_yes_price,
         size=float(size), side=PolySide.BUY
     )
+
 
 async def _execute_polymarket_buy_no(opportunity: ArbitrageOpportunity, size: int):
     if _dry_run:
@@ -129,11 +145,10 @@ async def _execute_polymarket_buy_no(opportunity: ArbitrageOpportunity, size: in
         size=float(size), side=PolySide.BUY
     )
 
+
 async def handle_trade_response(kalshi_result, polymarket_result, category, opportunity: ArbitrageOpportunity):
     """
     This handler processes the data and publishes the processed data to the bus.
-    args:
-        kalshi_result: KalshiOrder object or an exception
     """
     is_kalshi_error = isinstance(kalshi_result, Exception)
     is_polymarket_error = isinstance(polymarket_result, Exception)
@@ -149,7 +164,13 @@ async def handle_trade_response(kalshi_result, polymarket_result, category, oppo
     )
     await store_trade(StoreTradeResults(arb_trade_results=arb_trade_result))
 
-    # Unwind Logic
+    # Scenario: Both legs failed. Trigger application shutdown.
+    if is_kalshi_error and is_polymarket_error:
+        logger.critical("Both trade legs failed. Triggering application shutdown.")
+        _shutdown_event.set()
+        return  # Stop further processing
+
+    # Scenario: Partial failure. Trigger unwind but defer shutdown to unwinder.
     if is_kalshi_error and not is_polymarket_error:
         logger.warning("Kalshi trade leg failed, Polymarket succeeded. Triggering unwind.")
         successful_leg = TradeDetails(
@@ -183,6 +204,27 @@ async def handle_trade_response(kalshi_result, polymarket_result, category, oppo
         )
         await publish_trade_failed(event)
 
+    await handle_balance_update()
+
+    # If both legs succeeded, publish the event to trigger the application reset
+    if not is_kalshi_error and not is_polymarket_error:
+        logger.info("Both trade legs succeeded. Publishing ArbitrageTradeSuccessful event.")
+        await _bus.publish(ArbitrageTradeSuccessful())
+
+    # If the trade was not a total failure, signal completion to unlock the monitor.
+    if not (is_kalshi_error and is_polymarket_error):
+        await _bus.publish(TradeAttemptCompleted())
+
+async def handle_balance_update():
+    # Update balance, if not enough to cover the next trade, shut down the application
+    try:
+        _balance_service.update_wallets()
+        if not _balance_service.has_enough_balance:
+            _shutdown_event.set()
+    except Exception as e:
+        # if app fails to get new balance shutdown the application
+        logger.critical("Failed to update wallets, shutting down: {e}".format(e=e))
+        _shutdown_event.set()
 
 async def publish_trade_failed(event: TradeFailed):
     """

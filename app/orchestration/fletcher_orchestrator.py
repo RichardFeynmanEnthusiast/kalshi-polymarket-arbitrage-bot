@@ -3,6 +3,7 @@ import logging
 from typing import Dict, List, Coroutine, Optional
 
 from app.bootstrap import bootstrap
+from app.domain.events import ArbitrageTradeSuccessful
 from app.ingestion.clob_wss import PolymarketWebSocketClient
 from app.domain.models.match_models import MarketPair, MatchedMarketBase
 from app.domain.models.platform_models import PolymarketMarket, KalshiMarket
@@ -14,6 +15,7 @@ from app.message_bus import MessageBus
 from app.repositories.matches_repository import MatchesRepository
 from app.gateways.attempted_opportunities_gateway import AttemptedOpportunitiesGateway
 from app.gateways.trade_gateway import TradeGateway
+from app.services.operational.balance_service import BalanceService
 from app.services.operational.diagnostic_printer import DiagnosticPrinter
 from app.services.trade_storage import TradeStorage
 
@@ -37,6 +39,7 @@ class FletcherOrchestrator:
         printer: Optional[DiagnosticPrinter],
         trade_storage: TradeStorage,
         market_manager: MarketManager,
+        balance_service: BalanceService,
     ):
         self.logger = logging.getLogger(__name__)
         # --- Dependencies ---
@@ -52,15 +55,19 @@ class FletcherOrchestrator:
         self.trade_storage = trade_storage
         # Use the provided MarketManager instance, don't create a new one.
         self.market_manager = market_manager
+        self.balance_service = balance_service
 
         # --- State ---
         self._running = False
         self._tasks: Dict[str, asyncio.Task] = {}
         self.markets_config: List[Dict] = []
         self.market_pairs: List[MarketPair] = []
+        self.cool_down_seconds: int = 5
+        self.shutdown_event = asyncio.Event()
 
-    async def run_live_trading_service(self, market_tuples: List[tuple], dry_run: bool = True):
+    async def run_live_trading_service(self, market_tuples: List[tuple], dry_run: bool = True, cool_down_seconds: int = 5):
         """The main entry point to configure and run the application."""
+        self.cool_down_seconds = cool_down_seconds
 
         # Step 1: Dynamically configure markets using gateways
         await self._configure_markets(market_tuples)
@@ -74,11 +81,53 @@ class FletcherOrchestrator:
             markets_config=self.markets_config,
             trade_repo=self.trade_repo,
             trade_storage=self.trade_storage,
-            dry_run=dry_run
+            dry_run=dry_run,
+            shutdown_event=self.shutdown_event,
+            balance_service=self.balance_service,
         )
+
+        self.bus.subscribe(ArbitrageTradeSuccessful, self._handle_successful_trade_and_reset)
 
         # Step 3: Start and manage the application tasks
         await self._start(core_coroutines)
+
+    async def _handle_successful_trade_and_reset(self, event: ArbitrageTradeSuccessful):
+        """
+        Coordinates a "soft reset" of the application after a successful trade,
+        including a cool-down period.
+        """
+        self.logger.info(
+            f"Successful trade detected. Initiating {self.cool_down_seconds}-second cool-down and reset."
+        )
+
+        # 1. Stop current WebSocket listeners by cancelling their tasks
+        self.logger.info("Stopping WebSocket listeners...")
+        if "kalshi_connect" in self._tasks and not self._tasks["kalshi_connect"].done():
+            self._tasks["kalshi_connect"].cancel()
+        if "poly_connect" in self._tasks and not self._tasks["poly_connect"].done():
+            self._tasks["poly_connect"].cancel()
+
+        # Give a moment for the cancellations to be processed
+        await asyncio.sleep(2)
+
+        # 2. Enforce cool-down period
+        self.logger.info(f"Beginning {self.cool_down_seconds} second cool-down...")
+        await asyncio.sleep(self.cool_down_seconds)
+        self.logger.info("Cool-down complete. Resetting application state...")
+
+        # 3. Clear existing market state (all order books)
+        self.market_manager.reset()
+
+        # 4. Get and log updated balances
+        #  get_venue_balance()
+
+        # 5. Restart WebSocket listeners to fetch fresh snapshots
+        self.logger.info("Restarting WebSocket clients to fetch fresh order books...")
+        self._tasks["kalshi_connect"] = asyncio.create_task(self.kalshi_wss.connect_forever())
+        self._tasks["poly_connect"] = asyncio.create_task(
+            self.poly_wss_client.connect_forever(channel_path=self.poly_wss_client.MARKET_PATH)
+        )
+        self.logger.info("Reset complete. Resuming normal operation.")
 
     async def _configure_markets(self, market_tuples: List[tuple]):
         """
@@ -100,8 +149,6 @@ class FletcherOrchestrator:
         poly_results, kalshi_results = await asyncio.gather(poly_task, kalshi_task)
 
         # 3. Validate and create matched market objects
-        # Note: This assumes results are ordered correctly. A more robust implementation
-        # might use a dictionary lookup to ensure correct pairing.
         matched_markets = self._create_matched_markets(poly_results, kalshi_results)
 
         # 4. Prepare the final configuration for the WebSocket clients
@@ -155,6 +202,15 @@ class FletcherOrchestrator:
 
         return matched_markets
 
+    async def _shutdown_monitor(self):
+        """Waits for the shutdown event and then cancels the critical tasks."""
+        await self.shutdown_event.wait()
+        self.logger.critical("Shutdown signal received. Cancelling critical tasks to trigger graceful exit.")
+        for name, task in self._tasks.items():
+            if name in ("message_bus", "flush_task"):
+                if not task.done():
+                    task.cancel()
+
     async def _start(self, core_coroutines: List[Coroutine]):
         """Creates and manages all runtime tasks from the bootstrapped coroutines."""
         if self._running:
@@ -170,13 +226,20 @@ class FletcherOrchestrator:
         if self.printer:
             self._tasks["printer_task"] = asyncio.create_task(self.printer.run_printer_service())
         self._tasks["flush_task"] = asyncio.create_task(self.trade_storage.start())
+        self._tasks["shutdown_monitor"] = asyncio.create_task(self._shutdown_monitor())
 
         self.logger.info(f"Fletcher Orchestrator started all tasks: {list(self._tasks.keys())}")
+
+        tasks_to_await = [
+            task for name, task in self._tasks.items()
+            if name not in ("kalshi_connect", "poly_connect")
+        ]
+
         try:
-            await asyncio.gather(*self._tasks.values())
-        except asyncio.CancelledError:
-            self.logger.info("Orchestrator tasks cancelled.")
+            # We only await the critical tasks. The WSS tasks can be managed separately.
+            await asyncio.gather(*tasks_to_await)
         finally:
+            # If any of the critical tasks stop, initiate a full shutdown.
             await self.stop()
 
     async def stop(self):
@@ -184,10 +247,10 @@ class FletcherOrchestrator:
         if not self._running:
             return
         self.logger.info("Stopping Fletcher Orchestrator...")
+        self._running = False
         for name, task in self._tasks.items():
             if not task.done():
                 task.cancel()
                 self.logger.info(f"Cancelled task: {name}")
         await asyncio.gather(*self._tasks.values(), return_exceptions=True)
-        self._running = False
         self.logger.info("Fletcher Orchestrator stopped.")

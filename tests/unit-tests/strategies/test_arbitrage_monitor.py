@@ -3,11 +3,12 @@ from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 from unittest.mock import MagicMock, AsyncMock
 
-from app.domain.events import MarketBookUpdated, ArbitrageOpportunityFound, ExecuteTrade
+from app.domain.events import MarketBookUpdated, ArbitrageOpportunityFound, ExecuteTrade, TradeAttemptCompleted
 from app.domain.primitives import Platform, SIDES
-from app.markets.state import MarketState, MarketOutcomes
 from app.markets.order_book import Orderbook
+from app.markets.state import MarketState, MarketOutcomes
 from app.strategies import arbitrage_monitor
+from tests.sample_data import VALID_WALLETS_LARGER_KALSHI
 
 
 class TestArbitrageMonitor(unittest.IsolatedAsyncioTestCase):
@@ -33,6 +34,12 @@ class TestArbitrageMonitor(unittest.IsolatedAsyncioTestCase):
             bus=self.bus,
             markets_config=self.markets_config,
         )
+        # Ensure the lock state is reset after each test for isolation
+        self.addAsyncCleanup(self._reset_monitor_state)
+
+    def _reset_monitor_state(self):
+        """Resets the internal state of the monitor for test isolation."""
+        arbitrage_monitor._is_trade_in_progress = False
 
     def _create_market_state(
             self,
@@ -81,8 +88,6 @@ class TestArbitrageMonitor(unittest.IsolatedAsyncioTestCase):
 
         self.market_manager.get_market_state.return_value = market_state
         return market_state
-
-
 
     # --------------------------------------------------------------------------
     # Fee Calculation Tests
@@ -142,6 +147,52 @@ class TestArbitrageMonitor(unittest.IsolatedAsyncioTestCase):
         execute_command = self.bus.publish.call_args[0][0]
         self.assertIsInstance(execute_command, ExecuteTrade)
         self.assertEqual(execute_command.opportunity, found_event.opportunity)
+
+    # --- Test Cases for Locking Mechanism ---
+
+    async def test_monitor_locks_after_finding_opportunity(self):
+        """The monitor's internal flag should be set to True after finding an opportunity."""
+        # Arrange: A profitable market
+        self._create_market_state(
+            kalshi_yes_ask_price=Decimal("0.40"), kalshi_yes_ask_size=Decimal("10"),
+            poly_no_ask_price=Decimal("0.40"), poly_no_ask_size=Decimal("10")
+        )
+        event = MarketBookUpdated(market_id=self.market_id, platform=Platform.KALSHI)
+
+        # Act
+        await arbitrage_monitor.handle_market_book_update(event)
+
+        # Assert: Bus was called and the monitor is now locked
+        self.bus.publish.assert_called_once()
+        self.assertTrue(arbitrage_monitor._is_trade_in_progress)
+
+    async def test_monitor_skips_when_locked(self):
+        """If the monitor is locked, it should not process new market updates."""
+        # Arrange: A profitable market and a locked monitor
+        arbitrage_monitor._is_trade_in_progress = True
+        self._create_market_state(
+            kalshi_yes_ask_price=Decimal("0.40"), kalshi_yes_ask_size=Decimal("10"),
+            poly_no_ask_price=Decimal("0.40"), poly_no_ask_size=Decimal("10")
+        )
+        event = MarketBookUpdated(market_id=self.market_id, platform=Platform.KALSHI)
+
+        # Act
+        await arbitrage_monitor.handle_market_book_update(event)
+
+        # Assert: The bus was never called because the monitor was locked
+        self.bus.publish.assert_not_called()
+
+    async def test_monitor_unlocks_on_trade_completed_event(self):
+        """The monitor should unlock when it handles a TradeAttemptCompleted event."""
+        # Arrange: A locked monitor
+        arbitrage_monitor._is_trade_in_progress = True
+        event = TradeAttemptCompleted()
+
+        # Act
+        await arbitrage_monitor.handle_trade_attempt_completed(event)
+
+        # Assert: The monitor is now unlocked
+        self.assertFalse(arbitrage_monitor._is_trade_in_progress)
 
     # --- Test Cases for Strategy Logic: Opportunity Found ---
 
@@ -286,6 +337,7 @@ class TestArbitrageMonitor(unittest.IsolatedAsyncioTestCase):
         await arbitrage_monitor.handle_market_book_update(event)
 
         self.bus.publish.assert_not_called()
+
 
 if __name__ == '__main__':
     unittest.main()

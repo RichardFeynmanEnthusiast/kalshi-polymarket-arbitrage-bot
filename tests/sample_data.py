@@ -1,7 +1,13 @@
 from decimal import Decimal
+from typing import Dict
+
+from app.domain.primitives import Money as pMoney
+from shared_wallets.domain.types import Currency, Money
+from shared_wallets.domain.models import ExchangeWallet, Exchange
 
 from app.domain.models.opportunity import ArbitrageOpportunity
 from app.domain.primitives import Platform
+from app.domain.types import Wallets
 
 """ This file stores simulated data from API responses to use for testing"""
 
@@ -37,5 +43,45 @@ DUMMY_ARB_OPPORTUNITY_BUY_BOTH = ArbitrageOpportunity(
             potential_trade_size=Decimal("100.000"),
             kalshi_ticker="KXFEDCHAIRNOM-29-KW",
             polymarket_yes_token_id="yes-token",
-            polymarket_no_token_id="no-token"
+            polymarket_no_token_id="no-token",
+            kalshi_fees= pMoney("0.00")
         )
+
+# --- Dummy wallet amounts
+
+KALSHI_BALANCE : Dict[Currency, Money] = {
+    Currency.USD: Money(Decimal("100.00"), Currency.USD),
+}
+POLYMARKET_BALANCE : Dict[Currency, Money] = {
+    Currency.USDC_E: Money(Decimal("50.00"), Currency.USDC_E),
+    Currency.POL: Money(Decimal("85.00"), Currency.POL),
+}
+POLYMARKET_WALLET = ExchangeWallet(exchange=Exchange.POLYMARKET, balances=POLYMARKET_BALANCE)
+KALSHI_WALLET = ExchangeWallet(exchange=Exchange.KALSHI, balances=KALSHI_BALANCE)
+
+VALID_WALLETS_LARGER_KALSHI= Wallets(
+    kalshi_wallet=KALSHI_WALLET,
+    polymarket_wallet=POLYMARKET_WALLET,
+)
+
+POLYMARKET_BALANCE : Dict[Currency, Money] = {
+    Currency.USDC_E: Money(Decimal("1000.00"), Currency.USDC_E),
+    Currency.POL: Money(Decimal("85.00"), Currency.POL),
+}
+POLYMARKET_WALLET = ExchangeWallet(exchange=Exchange.POLYMARKET, balances=POLYMARKET_BALANCE)
+
+VALID_WALLETS_LARGER_POLY= Wallets(
+    kalshi_wallet=KALSHI_WALLET,
+    polymarket_wallet=POLYMARKET_WALLET,
+)
+
+POLYMARKET_BALANCE : Dict[Currency, Money] = {
+    Currency.USDC_E: Money(Decimal("100.00"), Currency.USDC_E),
+    Currency.POL: Money(Decimal("85.00"), Currency.POL),
+}
+POLYMARKET_WALLET = ExchangeWallet(exchange=Exchange.POLYMARKET, balances=POLYMARKET_BALANCE)
+
+VALID_WALLETS_EQUAL= Wallets(
+    kalshi_wallet=KALSHI_WALLET,
+    polymarket_wallet=POLYMARKET_WALLET,
+)

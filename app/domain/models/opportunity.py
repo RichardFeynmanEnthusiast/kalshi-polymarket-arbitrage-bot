@@ -5,7 +5,7 @@ from typing import Optional, Dict, Any
 
 from pydantic import BaseModel, Field, model_validator
 
-from app.domain.primitives import Platform
+from app.domain.primitives import Platform, Money
 
 
 class ArbitrageOpportunity(BaseModel):
@@ -25,6 +25,8 @@ class ArbitrageOpportunity(BaseModel):
     kalshi_ticker: str
     polymarket_yes_token_id: str
     polymarket_no_token_id: str
+    # --- Trade calculation data
+    kalshi_fees: Optional[Money] = None
 
 
 class ArbitrageOpportunityRecord(BaseModel):
@@ -62,7 +64,7 @@ class ArbitrageOpportunityRecord(BaseModel):
 
     def serialize(self):
         try:
-            base_data = self.model_dump(mode='json', exclude_none=True)
+            base_data = self.model_dump(mode='json', exclude_none=True, exclude={"arbitrage_opportunity": {"kalshi_fees"}})
             arb_opp_data = base_data.pop('arbitrage_opportunity', {})
             return {**base_data, **arb_opp_data}
         except Exception as e:

@@ -3,13 +3,12 @@ from datetime import timedelta
 from decimal import getcontext, Decimal, ROUND_CEILING
 from typing import Dict, List, Optional
 
-from app.domain.events import MarketBookUpdated, ArbitrageOpportunityFound, ExecuteTrade
+from app.domain.events import MarketBookUpdated, ArbitrageOpportunityFound, ExecuteTrade, TradeAttemptCompleted
 from app.domain.models.opportunity import ArbitrageOpportunity
 from app.domain.primitives import Money, Platform, SIDES
 from app.markets.manager import MarketManager
 from app.markets.state import MarketState
 from app.message_bus import MessageBus
-
 # --- Module Setup ---
 
 getcontext().prec = 18
@@ -21,6 +20,7 @@ STALENESS_THRESHOLD = timedelta(seconds=5)
 _market_manager: MarketManager
 _bus: MessageBus
 _market_config_map: Dict[str, Dict[str, str]] = {}
+_is_trade_in_progress: bool = False
 
 
 def initialize_arbitrage_handlers(
@@ -41,8 +41,13 @@ def initialize_arbitrage_handlers(
 async def handle_market_book_update(event: MarketBookUpdated):
     """
     This handler is the entry point for our strategy. It's triggered when a
-    market's state changes and it checks for an arbitrage opportunity.
+    market's state changes, and it checks for an arbitrage opportunity.
     """
+    global _is_trade_in_progress
+    if _is_trade_in_progress:
+        logger.debug("Skipping opportunity check: trade already in progress.")
+        return
+
     logger.debug(f"Handling MarketBookUpdated for {event.market_id}")
     market_state = _market_manager.get_market_state(event.market_id)
     if not market_state:
@@ -52,11 +57,12 @@ async def handle_market_book_update(event: MarketBookUpdated):
 
     if opportunity:
         logger.info(
-            "Arbitrage opportunity detected",
+            "Arbitrage opportunity detected, locking strategy until execution is complete.",
             extra={
                 "opportunity_details": opportunity.model_dump(mode='json')
             }
         )
+        _is_trade_in_progress = True
         await _bus.publish(ArbitrageOpportunityFound(opportunity=opportunity))
     else:
         logger.debug(
@@ -72,6 +78,13 @@ async def handle_arbitrage_opportunity_found(event: ArbitrageOpportunityFound):
     """
     logger.info(f"Handling ArbitrageOpportunityFound for {event.opportunity.market_id}. Issuing ExecuteTrade command.")
     await _bus.publish(ExecuteTrade(opportunity=event.opportunity))
+
+
+async def handle_trade_attempt_completed(event: TradeAttemptCompleted):
+    """Resets the trade-in-progress flag, re-enabling opportunity checks."""
+    global _is_trade_in_progress
+    _is_trade_in_progress = False
+    logger.info("Trade attempt completed. Re-enabling arbitrage checks.")
 
 
 # --- Strategy Logic ---
@@ -142,12 +155,14 @@ def _check_for_buy_both_arb(market_state: MarketState) -> Optional[ArbitrageOppo
             cost1 = kalshi_yes_ask_price + poly_no_ask_price
             trade_size1 = min(kalshi_yes_ask_size, poly_no_ask_size)
             if trade_size1 > 0 and (cost1 + (_kalshi_fee(trade_size1, kalshi_yes_ask_price) / trade_size1)) < Decimal("1.0") - PROFITABILITY_BUFFER:
-                profit_margin = Decimal("1.0") - (cost1 + (_kalshi_fee(trade_size1, kalshi_yes_ask_price) / trade_size1))
+                kalshi_fees = (_kalshi_fee(trade_size1, kalshi_yes_ask_price) / trade_size1)
+                profit_margin = Decimal("1.0") - (cost1 + kalshi_fees)
                 return ArbitrageOpportunity(
                     market_id=market_id, buy_yes_platform=Platform.KALSHI, buy_yes_price=kalshi_yes_ask_price,
                     buy_no_platform=Platform.POLYMARKET, buy_no_price=poly_no_ask_price, profit_margin=profit_margin,
                     potential_trade_size=trade_size1, kalshi_ticker=market_config["kalshi_ticker"],
                     polymarket_yes_token_id=market_config["polymarket_yes_token_id"], polymarket_no_token_id=market_config["polymarket_no_token_id"],
+                    kalshi_fees=kalshi_fees
                 )
 
     # --- Opportunity 2: Buy YES on Polymarket, Buy NO on Kalshi ---
@@ -165,12 +180,14 @@ def _check_for_buy_both_arb(market_state: MarketState) -> Optional[ArbitrageOppo
             cost2 = poly_yes_ask_price + kalshi_no_ask_price
             trade_size2 = min(poly_yes_ask_size, kalshi_yes_bid_size)
             if trade_size2 > 0 and (cost2 + (_kalshi_fee(trade_size2, kalshi_no_ask_price) / trade_size2)) < Decimal("1.0") - PROFITABILITY_BUFFER:
-                profit_margin = Decimal("1.0") - (cost2 + (_kalshi_fee(trade_size2, kalshi_no_ask_price) / trade_size2))
+                kalshi_fees = (_kalshi_fee(trade_size2, kalshi_no_ask_price) / trade_size2)
+                profit_margin = Decimal("1.0") - (cost2 + kalshi_fees)
                 return ArbitrageOpportunity(
                     market_id=market_id, buy_yes_platform=Platform.POLYMARKET, buy_yes_price=poly_yes_ask_price,
                     buy_no_platform=Platform.KALSHI, buy_no_price=kalshi_no_ask_price, profit_margin=profit_margin,
                     potential_trade_size=trade_size2, kalshi_ticker=market_config["kalshi_ticker"],
                     polymarket_yes_token_id=market_config["polymarket_yes_token_id"], polymarket_no_token_id=market_config["polymarket_no_token_id"],
+                    kalshi_fees= kalshi_fees
                 )
 
     return None

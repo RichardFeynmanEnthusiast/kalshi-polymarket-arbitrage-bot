@@ -50,7 +50,6 @@ class KalshiHttpClient(KalshiBaseClient):
             # Raise an HTTPError with the new, more informative message.
             raise requests.exceptions.HTTPError(error_message, response=response)
 
-
     def post(self, path: str, body: dict) -> Any:
         """Performs an authenticated POST request to the Kalshi API."""
         self.rate_limit()
@@ -61,6 +60,17 @@ class KalshiHttpClient(KalshiBaseClient):
         )
         self.raise_if_bad_response(response)
         return response.json()
+
+    async def async_post(self, path: str, body: dict) -> Any:
+        """Performs an authenticated POST request to the Kalshi API."""
+        self.rate_limit()
+        headers = self.request_headers("POST", path)
+        url = self.host + path
+
+        async with aiohttp.ClientSession(headers=headers) as session:
+            async with session.post(url, json=body) as response:
+                response.raise_for_status()
+                return await response.json()
 
     def get(self, path: str, params: Dict[str, Any] = {}) -> Any:
         """Performs an authenticated GET request to the Kalshi API."""
@@ -232,7 +242,7 @@ class KalshiHttpClient(KalshiBaseClient):
         df = pd.DataFrame(all_markets)
         return df.drop_duplicates(subset=["ticker"]).reset_index(drop=True)
 
-    def create_order(
+    async def create_order(
         self,
         action: str,
         side: str,
@@ -299,7 +309,7 @@ class KalshiHttpClient(KalshiBaseClient):
             body["sell_position_floor"] = sell_position_floor
 
         # Send the request
-        return self.post(f"{self.portfolio_url}/orders", body)
+        return await self.async_post(f"{self.portfolio_url}/orders", body)
 
     def get_orders(
             self,

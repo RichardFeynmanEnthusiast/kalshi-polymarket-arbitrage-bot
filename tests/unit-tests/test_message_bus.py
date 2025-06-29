@@ -1,6 +1,8 @@
 import unittest
 from decimal import Decimal
 import asyncio
+from unittest.mock import MagicMock
+
 from tests.sample_data import (DUMMY_VALID_KALSHI_ORDER_RESPONSE, DUMMY_VALID_POLYMARKET_ORDER_RESPONSE,
                                DUMMY_ARB_OPPORTUNITY_BUY_BOTH)
 
@@ -19,11 +21,21 @@ class TestMessageBus(unittest.IsolatedAsyncioTestCase):
         self.trade_gateway = TradeGateway(kalshi_http=None, polymarket_http=None) # not needed
         self.attempted_opps_gtwy = AttemptedOpportunitiesGateway(self.db_client.client)
 
+        # Mock shut down event
+        self.shutdown_event = MagicMock(spec=asyncio.Event)
+        self.shutdown_event.set = MagicMock()
+
         # test data
         self.dummy_opportunity = DUMMY_ARB_OPPORTUNITY_BUY_BOTH
         dummy_raw_kalshi_order_response = DUMMY_VALID_KALSHI_ORDER_RESPONSE
-        self.dummy_valid_kalshi_response = self.trade_gateway.process_raw_kalshi_order(dummy_raw_kalshi_order_response,trade_size=Decimal("3.00"))
-        self.dummy_poly_order_response = DUMMY_VALID_POLYMARKET_ORDER_RESPONSE
+        self.dummy_valid_kalshi_response = self.trade_gateway.process_raw_kalshi_order(
+            dummy_raw_kalshi_order_response,
+            trade_size=Decimal("3.00")
+        )
+        self.dummy_poly_order_response = self.trade_gateway.process_raw_polymarket_order(
+            DUMMY_VALID_POLYMARKET_ORDER_RESPONSE,
+            token_id_to_add=self.dummy_opportunity.polymarket_yes_token_id
+        )
 
     async def asyncTearDown(self):
         if hasattr(self, 'bus_task'):
@@ -39,14 +51,21 @@ class TestMessageBus(unittest.IsolatedAsyncioTestCase):
         """ Mocks setup from main """
         # Start background task for service
         self.bus = MessageBus()
-        self.trade_storage = TradeStorage(bus=self.bus, trade_repo=None,
-                                          attempted_opportunities_repo=self.attempted_opps_gtwy, batch_size=batch_size, flush_interval_seconds=flush_interval_seconds)
+        self.trade_storage = TradeStorage(
+            bus=self.bus,
+            trade_repo=None,
+            attempted_opportunities_repo=self.attempted_opps_gtwy,
+            batch_size=batch_size,
+            flush_interval_seconds=flush_interval_seconds
+        )
         await self.trade_storage.start()
         executor.initialize_trade_executor(
             trade_repo=None,  # Not needed for this test
             bus=self.bus,
             dry_run=False,
-            max_trade_size=100
+            shutdown_event=self.shutdown_event,
+            max_trade_size=MagicMock(),
+            balance_service=MagicMock()
         )
 
         self.bus.subscribe(ExecuteTrade, executor.handle_execute_trade)
