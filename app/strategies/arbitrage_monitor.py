@@ -3,15 +3,12 @@ from datetime import timedelta
 from decimal import getcontext, Decimal, ROUND_CEILING
 from typing import Dict, List, Optional
 
-from shared_wallets.domain.types import Currency
-
 from app.domain.events import MarketBookUpdated, ArbitrageOpportunityFound, ExecuteTrade, TradeAttemptCompleted
 from app.domain.models.opportunity import ArbitrageOpportunity
 from app.domain.primitives import Money, Platform, SIDES
 from app.markets.manager import MarketManager
 from app.markets.state import MarketState
 from app.message_bus import MessageBus
-from app.domain.types import Wallets
 # --- Module Setup ---
 
 getcontext().prec = 18
@@ -24,23 +21,18 @@ _market_manager: MarketManager
 _bus: MessageBus
 _market_config_map: Dict[str, Dict[str, str]] = {}
 _is_trade_in_progress: bool = False
-_wallets : Wallets
 
 
 def initialize_arbitrage_handlers(
     market_manager: MarketManager,
     bus: MessageBus,
-    wallets: Wallets,
     markets_config: List[Dict[str, str]],
 ):
     """Injects dependencies into the strategy handlers module."""
-    global _market_manager, _bus, _market_config_map, _wallets
+    global _market_manager, _bus, _market_config_map
     _market_manager = market_manager
     _bus = bus
-    _wallets = wallets
     _market_config_map = {m["id"]: m for m in markets_config}
-    logger.debug(f"Arbitrage handler starting kalshi wallet amount: ${wallets.kalshi_wallet.get_balance(Currency.USD)}")
-    logger.debug(f"Arbitrage handler starting polymarket wallet USDC.e amount: {wallets.polymarket_wallet.get_balance(Currency.USDC_E)}")
     logger.info("Arbitrage monitor handlers initialized.")
 
 
@@ -85,7 +77,7 @@ async def handle_arbitrage_opportunity_found(event: ArbitrageOpportunityFound):
     for the decision to act on the opportunity by issuing a command.
     """
     logger.info(f"Handling ArbitrageOpportunityFound for {event.opportunity.market_id}. Issuing ExecuteTrade command.")
-    await _bus.publish(ExecuteTrade(opportunity=event.opportunity, wallets=_wallets))
+    await _bus.publish(ExecuteTrade(opportunity=event.opportunity))
 
 
 async def handle_trade_attempt_completed(event: TradeAttemptCompleted):

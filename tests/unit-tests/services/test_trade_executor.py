@@ -1,6 +1,6 @@
 import asyncio
 import unittest
-from unittest.mock import MagicMock, AsyncMock
+from unittest.mock import MagicMock, AsyncMock, Mock
 
 from app.domain.models.opportunity import ArbitrageOpportunity
 from app.domain.primitives import Platform
@@ -8,9 +8,15 @@ from app.domain.events import StoreTradeResults, ExecuteTrade, TradeAttemptCompl
 from app.gateways.trade_gateway import TradeGateway
 from app.services.execution import executor
 from decimal import Decimal
+from shared_wallets.domain.types import Currency, Money
+from shared_wallets.domain.models import Exchange, ExchangeWallet
+from app.domain.types import Wallets
 
+from app.services.operational.balance_service import BalanceService
 from tests.sample_data import DUMMY_VALID_KALSHI_ORDER_RESPONSE, DUMMY_VALID_POLYMARKET_ORDER_RESPONSE, VALID_WALLETS
 
+def make_wallet(balances, exchange):
+    return ExchangeWallet(exchange=exchange, balances=balances)
 
 class TestExecutor(unittest.IsolatedAsyncioTestCase):
 
@@ -20,6 +26,7 @@ class TestExecutor(unittest.IsolatedAsyncioTestCase):
 
     async def asyncSetUp(self):
         self.mock_bus = MagicMock()
+        self.mock_gateway = Mock()
         self.mock_bus.publish = AsyncMock()
 
         # Mock the shutdown event
@@ -32,6 +39,7 @@ class TestExecutor(unittest.IsolatedAsyncioTestCase):
             bus=self.mock_bus,
             shutdown_event=self.mock_shutdown_event,
             dry_run=False,
+            balance_service=MagicMock(),
         )
 
         # Shared test data
@@ -42,7 +50,7 @@ class TestExecutor(unittest.IsolatedAsyncioTestCase):
             buy_no_platform=Platform.POLYMARKET,
             buy_no_price=Decimal("0.25"),
             profit_margin=Decimal("0.50"),
-            potential_trade_size=Decimal("100.000"),
+            potential_trade_size=Decimal("10.00"),
             kalshi_ticker="KXFEDCHAIRNOM-29-KW",
             polymarket_yes_token_id="yes-token",
             polymarket_no_token_id="no-token"
@@ -63,6 +71,7 @@ class TestExecutor(unittest.IsolatedAsyncioTestCase):
         Verify that on success, it publishes StoreTradeResults, ArbitrageTradeSuccessful,
         and TradeAttemptCompleted.
         """
+
         await executor.handle_trade_response(
             kalshi_result=self.dummy_valid_kalshi_response,
             polymarket_result=self.dummy_valid_poly_response,
@@ -111,7 +120,19 @@ class TestExecutor(unittest.IsolatedAsyncioTestCase):
         zero_size_opportunity = self.dummy_opportunity.model_copy(
             update={"potential_trade_size": Decimal("0")}
         )
-        command = ExecuteTrade(opportunity=zero_size_opportunity, wallets=VALID_WALLETS)
+        # Mock with valid values
+        balance_service = BalanceService(balance_data_gateway=self.mock_gateway,
+                                         minimum_balance=Decimal(1.00))
+        balance_service.set_wallets(VALID_WALLETS)
+        executor.initialize_trade_executor(
+            trade_repo=None,
+            bus=self.mock_bus,
+            shutdown_event=self.mock_shutdown_event,
+            dry_run=False,
+            balance_service=balance_service,
+        )
+
+        command = ExecuteTrade(opportunity=zero_size_opportunity)
 
         # Act
         await executor.handle_execute_trade(command)
@@ -120,6 +141,76 @@ class TestExecutor(unittest.IsolatedAsyncioTestCase):
         self.mock_bus.publish.assert_called_once()
         published_event = self.mock_bus.publish.call_args[0][0]
         self.assertIsInstance(published_event, TradeAttemptCompleted)
+
+    async def test_handle_trade_response_leads_to_shut_down_when_balance_limit_reached(self):
+        """
+        Verify that when the balance is reached, the shutdown event is triggered from the happy path.
+        """
+        # Arrange
+        test_poly_wallet : ExchangeWallet = make_wallet({Currency.USDC_E : Money(Decimal("50.00"), Currency.USDC_E)}, exchange=Exchange.POLYMARKET)
+        test_kalshi_wallet : ExchangeWallet = make_wallet({Currency.USD :Money(Decimal("50.00"), Currency.USDC)}, exchange=Exchange.KALSHI)
+        min_balance = test_poly_wallet.get_balance(Currency.USDC_E).amount # same balance will shut down the service
+        balance_service = BalanceService(balance_data_gateway=self.mock_gateway,
+                                              minimum_balance=min_balance)
+        opportunity = self.dummy_opportunity.model_copy()
+        opportunity.potential_trade_size = min_balance
+        balance_service.generate_new_wallets = Mock(return_value=Wallets(kalshi_wallet=test_kalshi_wallet,
+                                                                              polymarket_wallet=test_poly_wallet))
+        executor.initialize_trade_executor(
+            trade_repo=None,
+            bus=self.mock_bus,
+            shutdown_event=self.mock_shutdown_event,
+            dry_run=False,
+            balance_service=balance_service,  # use your real one with mocked method
+        )
+
+        # Act
+        await executor.handle_trade_response(
+            kalshi_result=self.dummy_valid_kalshi_response,
+            polymarket_result=self.dummy_valid_poly_response,
+            category="buy both",
+            opportunity=self.dummy_opportunity
+        )
+
+        # Assert
+        self.assertEqual(self.mock_bus.publish.call_count, 3)
+        self.mock_shutdown_event.set.assert_called_once()
+
+    async def test_handle_trade_response_does_not_lead_to_shut_down_when_balance_limit_not_reached(self):
+        """
+        Verify that when there is sufficient balance, a shutdown event is not triggered.
+        """
+        # Arrange
+        test_poly_wallet: ExchangeWallet = make_wallet({Currency.USDC_E: Money(Decimal("50.00"), Currency.USDC_E)},
+                                                       exchange=Exchange.POLYMARKET)
+        test_kalshi_wallet: ExchangeWallet = make_wallet({Currency.USD: Money(Decimal("50.00"), Currency.USDC)},
+                                                         exchange=Exchange.KALSHI)
+        min_balance = test_poly_wallet.get_balance(Currency.USDC_E).amount - Decimal("1.00")
+        balance_service = BalanceService(balance_data_gateway=self.mock_gateway,
+                                              minimum_balance=min_balance)
+        opportunity = self.dummy_opportunity.model_copy()
+        opportunity.potential_trade_size = min_balance
+        balance_service.generate_new_wallets = Mock(return_value=Wallets(kalshi_wallet=test_kalshi_wallet,
+                                                                              polymarket_wallet=test_poly_wallet))
+        executor.initialize_trade_executor(
+            trade_repo=None,
+            bus=self.mock_bus,
+            shutdown_event=self.mock_shutdown_event,
+            dry_run=False,
+            balance_service=balance_service,  # use your real one with mocked method
+        )
+
+        # Act
+        await executor.handle_trade_response(
+            kalshi_result=self.dummy_valid_kalshi_response,
+            polymarket_result=self.dummy_valid_poly_response,
+            category="buy both",
+            opportunity=self.dummy_opportunity
+        )
+
+        # Assert
+        self.assertEqual(self.mock_bus.publish.call_count, 3)
+        self.mock_shutdown_event.set.assert_not_called()
 
 
 if __name__ == '__main__':

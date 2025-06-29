@@ -91,8 +91,6 @@ class ArbTradeResultReceived(BaseEvent):
 class ExecuteTrade(BaseCommand):
     """Command to instruct the execution service to place a trade."""
     opportunity: ArbitrageOpportunity
-    wallets: Wallets
-
 
 class StoreTradeResults(BaseCommand):
     """Command to instruct the trade storage service to flush the trade results to the database"""

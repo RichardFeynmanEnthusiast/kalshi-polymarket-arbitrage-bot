@@ -1,4 +1,5 @@
 import logging
+from decimal import Decimal
 
 from app.gateways.balance_data_gateway import BalanceDataGateway
 from app.domain.events import StoreTradeResults
@@ -16,9 +17,10 @@ class BalanceService:
     trade results.
     """
 
-    def __init__(self, balance_data_gateway: BalanceDataGateway):
+    def __init__(self, balance_data_gateway: BalanceDataGateway, minimum_balance):
         self.logger = logging.getLogger(__name__)
         self._balance_data_gateway = balance_data_gateway
+        self._minimum_balance : Decimal = minimum_balance
         self._wallets = None
 
     def update_polymarket_balance(self, trade_result):
@@ -52,6 +54,7 @@ class BalanceService:
     def generate_new_wallets(self) -> Wallets:
         self.logger.info("Generating wallets...")
         try:
+            # exception handles 0 balance or null case
             currencies = self._balance_data_gateway.get_venue_balances()
             kalshi_balance = {
                 Currency.USD : currencies[Currency.USD],
@@ -65,9 +68,36 @@ class BalanceService:
         except Exception as e:
             raise e
 
+    def update_wallets(self) -> Wallets:
+        try:
+            new_wallets = self.generate_new_wallets()
+            self.set_wallets(new_wallets)
+            return new_wallets
+        except Exception as e:
+            raise Exception(f"Failed to update wallets: {e}")
+
     def set_wallets(self, wallets: Wallets):
         """ """
         self._wallets = wallets
 
     def get_wallets(self):
         return self._wallets
+
+    @property
+    def kalshi_wallet (self) -> ExchangeWallet:
+        if self._wallets.kalshi_wallet is None:
+            raise RuntimeError("Kalshi wallet is not initialized")
+        return self._wallets.kalshi_wallet
+
+    @property
+    def polymarket_wallet(self) -> ExchangeWallet:
+        if self._wallets.polymarket_wallet is None:
+            raise RuntimeError("Polymarket wallet is not initialized")
+        return self._wallets.polymarket_wallet
+
+    @property
+    def has_enough_balance(self) -> bool:
+        # exclusive to prevent triggering a trade failure due to insufficient balance
+        has_enough_kalshi = self.kalshi_wallet.get_balance(Currency.USD).amount > self._minimum_balance
+        has_enough_polymarket =  self.polymarket_wallet.get_balance(Currency.USDC_E).amount > self._minimum_balance
+        return has_enough_kalshi and has_enough_polymarket

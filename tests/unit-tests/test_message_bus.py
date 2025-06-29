@@ -64,7 +64,8 @@ class TestMessageBus(unittest.IsolatedAsyncioTestCase):
             bus=self.bus,
             dry_run=False,
             shutdown_event=self.shutdown_event,
-            max_trade_size=100
+            max_trade_size=MagicMock(),
+            balance_service=MagicMock()
         )
 
         self.bus.subscribe(ExecuteTrade, executor.handle_execute_trade)
