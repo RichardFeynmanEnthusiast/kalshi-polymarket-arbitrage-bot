@@ -1,11 +1,12 @@
-from decimal import Decimal
-import math
+from decimal import Decimal, ROUND_FLOOR
 
 from shared_wallets.domain.types import Currency
 from app.domain.types import Wallets
 from app.domain.primitives import Money
+from app.settings.settings import settings
 
-def get_trade_size(wallets: Wallets, trade_opportunity_size : Decimal, kalshi_fees : Money) -> int:
+
+def get_trade_size(wallets: Wallets, trade_opportunity_size: Decimal, kalshi_fees: Money) -> int:
     """
     Determine a potential trade size by calculating the minimum of the Kalshi wallet balance,
     Polymarket wallet balance, and the square root of the total opportunity size.
@@ -18,10 +19,17 @@ def get_trade_size(wallets: Wallets, trade_opportunity_size : Decimal, kalshi_fe
     Returns:
         int: The calculated trade size.
     """
-    return min(calculate_minimum_wallet_budget(wallets, kalshi_fees),
-               calculate_trade_size(trade_opportunity_size))
+    wallet_budget = calculate_minimum_wallet_budget(wallets, kalshi_fees)
+    sqrt_opportunity = calculate_trade_size(trade_opportunity_size)
+    potential_size = min(wallet_budget, sqrt_opportunity)
 
-def calculate_trade_size(trade_size : Decimal) -> int:
+    if potential_size >= settings.SHUTDOWN_BALANCE:
+        return potential_size
+    else:
+        return 0
+
+
+def calculate_trade_size(trade_size: Decimal) -> int:
     """
     Calculate the trade size by taking the square root of the given trade size and rounding down
     to the nearest integer.
@@ -32,10 +40,12 @@ def calculate_trade_size(trade_size : Decimal) -> int:
     Returns:
         int: The calculated trade size after applying the square root and rounding down.
     """
-    sqr_root = math.sqrt(trade_size)
-    return math.floor(sqr_root)
+    if trade_size < 0:
+        return 0
+    return int(trade_size.sqrt())
 
-def calculate_minimum_wallet_budget(wallets: Wallets, kalshi_fees : Money) -> int:
+
+def calculate_minimum_wallet_budget(wallets: Wallets, kalshi_fees: Money) -> int:
     """
     Get the lesser of the Kalshi account's USD balance and the Polymarket account's USDC.e balance.
 
@@ -46,12 +56,21 @@ def calculate_minimum_wallet_budget(wallets: Wallets, kalshi_fees : Money) -> in
         int: The minimum balance between the Kalshi USD and Polymarket USDC.e accounts.
         Returns 0 if the currency is not found in the wallets.
     """
-    REMAINING_BALANCE = 0.95
+    REMAINING_BALANCE = Decimal('0.95')
     try:
-        kalshi_usd = math.floor(wallets.kalshi_wallet.get_balance(Currency.USD).amount)
-        kalshi_usd_adjusted : int = math.floor(kalshi_usd * REMAINING_BALANCE) - math.ceil(kalshi_fees)
-        poly_usdc_e : int = math.floor(wallets.polymarket_wallet.get_balance(Currency.USDC_E).amount)
-        return max(min(kalshi_usd_adjusted, poly_usdc_e),0) # 0 for undetected edge cases subtracting kalshi_fees
-    except KeyError:
+        kalshi_usd = wallets.kalshi_wallet.get_balance(Currency.USD).amount.quantize(
+            Decimal('1'),
+            rounding=ROUND_FLOOR
+        )
+        poly_usdc_e = wallets.polymarket_wallet.get_balance(Currency.USDC_E).amount.quantize(
+            Decimal('1'),
+            rounding=ROUND_FLOOR
+        )
+        kalshi_usd_adjusted = ((kalshi_usd * REMAINING_BALANCE) - kalshi_fees).quantize(
+            Decimal('1'),
+            rounding=ROUND_FLOOR
+        )
+        return int(max(Decimal('0'), min(kalshi_usd_adjusted, poly_usdc_e)))
+    except (KeyError, AttributeError):
         # Currency not found in wallets
         return 0
