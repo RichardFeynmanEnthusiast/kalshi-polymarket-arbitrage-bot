@@ -25,7 +25,8 @@ class TestAttemptedOpportunityGateway(unittest.TestCase):
             potential_trade_size=Decimal("100.000"),
             kalshi_ticker="KXFEDCHAIRNOM-29-KW",
             polymarket_yes_token_id="yes-token-test",
-            polymarket_no_token_id="no-token-test"
+            polymarket_no_token_id="no-token-test",
+            kalshi_fees=None,
         )
 
         self.dummy_opp_record =  ArbitrageOpportunityRecord(

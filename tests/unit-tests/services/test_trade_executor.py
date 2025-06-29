@@ -13,7 +13,7 @@ from shared_wallets.domain.models import Exchange, ExchangeWallet
 from app.domain.types import Wallets
 
 from app.services.operational.balance_service import BalanceService
-from tests.sample_data import DUMMY_VALID_KALSHI_ORDER_RESPONSE, DUMMY_VALID_POLYMARKET_ORDER_RESPONSE, VALID_WALLETS
+from tests.sample_data import DUMMY_VALID_KALSHI_ORDER_RESPONSE, DUMMY_VALID_POLYMARKET_ORDER_RESPONSE, VALID_WALLETS_LARGER_KALSHI
 
 def make_wallet(balances, exchange):
     return ExchangeWallet(exchange=exchange, balances=balances)
@@ -53,7 +53,8 @@ class TestExecutor(unittest.IsolatedAsyncioTestCase):
             potential_trade_size=Decimal("10.00"),
             kalshi_ticker="KXFEDCHAIRNOM-29-KW",
             polymarket_yes_token_id="yes-token",
-            polymarket_no_token_id="no-token"
+            polymarket_no_token_id="no-token",
+            kalshi_fees=Decimal("0.00"),
         )
 
         self.trade_gateway = TradeGateway(polymarket_http=None, kalshi_http=None)
@@ -123,7 +124,7 @@ class TestExecutor(unittest.IsolatedAsyncioTestCase):
         # Mock with valid values
         balance_service = BalanceService(balance_data_gateway=self.mock_gateway,
                                          minimum_balance=Decimal(1.00))
-        balance_service.set_wallets(VALID_WALLETS)
+        balance_service.set_wallets(VALID_WALLETS_LARGER_KALSHI)
         executor.initialize_trade_executor(
             trade_repo=None,
             bus=self.mock_bus,

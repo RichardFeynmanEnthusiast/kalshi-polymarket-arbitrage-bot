@@ -155,12 +155,14 @@ def _check_for_buy_both_arb(market_state: MarketState) -> Optional[ArbitrageOppo
             cost1 = kalshi_yes_ask_price + poly_no_ask_price
             trade_size1 = min(kalshi_yes_ask_size, poly_no_ask_size)
             if trade_size1 > 0 and (cost1 + (_kalshi_fee(trade_size1, kalshi_yes_ask_price) / trade_size1)) < Decimal("1.0") - PROFITABILITY_BUFFER:
-                profit_margin = Decimal("1.0") - (cost1 + (_kalshi_fee(trade_size1, kalshi_yes_ask_price) / trade_size1))
+                kalshi_fees = (_kalshi_fee(trade_size1, kalshi_yes_ask_price) / trade_size1)
+                profit_margin = Decimal("1.0") - (cost1 + kalshi_fees)
                 return ArbitrageOpportunity(
                     market_id=market_id, buy_yes_platform=Platform.KALSHI, buy_yes_price=kalshi_yes_ask_price,
                     buy_no_platform=Platform.POLYMARKET, buy_no_price=poly_no_ask_price, profit_margin=profit_margin,
                     potential_trade_size=trade_size1, kalshi_ticker=market_config["kalshi_ticker"],
                     polymarket_yes_token_id=market_config["polymarket_yes_token_id"], polymarket_no_token_id=market_config["polymarket_no_token_id"],
+                    kalshi_fees=kalshi_fees
                 )
 
     # --- Opportunity 2: Buy YES on Polymarket, Buy NO on Kalshi ---
@@ -178,12 +180,14 @@ def _check_for_buy_both_arb(market_state: MarketState) -> Optional[ArbitrageOppo
             cost2 = poly_yes_ask_price + kalshi_no_ask_price
             trade_size2 = min(poly_yes_ask_size, kalshi_yes_bid_size)
             if trade_size2 > 0 and (cost2 + (_kalshi_fee(trade_size2, kalshi_no_ask_price) / trade_size2)) < Decimal("1.0") - PROFITABILITY_BUFFER:
-                profit_margin = Decimal("1.0") - (cost2 + (_kalshi_fee(trade_size2, kalshi_no_ask_price) / trade_size2))
+                kalshi_fees = (_kalshi_fee(trade_size2, kalshi_no_ask_price) / trade_size2)
+                profit_margin = Decimal("1.0") - (cost2 + kalshi_fees)
                 return ArbitrageOpportunity(
                     market_id=market_id, buy_yes_platform=Platform.POLYMARKET, buy_yes_price=poly_yes_ask_price,
                     buy_no_platform=Platform.KALSHI, buy_no_price=kalshi_no_ask_price, profit_margin=profit_margin,
                     potential_trade_size=trade_size2, kalshi_ticker=market_config["kalshi_ticker"],
                     polymarket_yes_token_id=market_config["polymarket_yes_token_id"], polymarket_no_token_id=market_config["polymarket_no_token_id"],
+                    kalshi_fees= kalshi_fees
                 )
 
     return None

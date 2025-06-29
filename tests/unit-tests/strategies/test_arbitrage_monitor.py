@@ -8,7 +8,7 @@ from app.domain.primitives import Platform, SIDES
 from app.markets.order_book import Orderbook
 from app.markets.state import MarketState, MarketOutcomes
 from app.strategies import arbitrage_monitor
-from tests.sample_data import VALID_WALLETS
+from tests.sample_data import VALID_WALLETS_LARGER_KALSHI
 
 
 class TestArbitrageMonitor(unittest.IsolatedAsyncioTestCase):
