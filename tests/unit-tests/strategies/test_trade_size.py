@@ -1,12 +1,12 @@
 import unittest
-from typing import Dict
 from decimal import Decimal
 
+from app.domain.primitives import Money
+from shared_wallets.domain.types import Currency
 from app.domain.types import Wallets
-from app.strategies.trade_size import get_trade_size, calculate_minimum_wallet_budget, calculate_trade__size
-from shared_wallets.domain.types import Currency, Money
+from app.strategies.trade_size import get_trade_size, calculate_minimum_wallet_budget, calculate_trade_size
 from shared_wallets.domain.models import ExchangeWallet, Exchange
-from tests.sample_data import POLYMARKET_WALLET, KALSHI_WALLET, VALID_WALLETS
+from tests.sample_data import VALID_WALLETS_LARGER_KALSHI, VALID_WALLETS_LARGER_POLY, VALID_WALLETS_EQUAL
 
 
 class TestTradeSizeCalculations(unittest.TestCase):
@@ -17,31 +17,59 @@ class TestTradeSizeCalculations(unittest.TestCase):
         Creates ExchangeWallet instances for each exchange and aggregates them into a Wallets instance.
         """
         # setup
-        self.polymarket_wallet = POLYMARKET_WALLET
-        self.kalshi_wallet = KALSHI_WALLET
+        self.wallets = VALID_WALLETS_LARGER_KALSHI
+        self.polymarket_wallet = self.wallets.polymarket_wallet # 50
+        self.kalshi_wallet = self.wallets.kalshi_wallet # $100
+        self.kalshi_fees = Money("1.00")
 
-        self.wallets = VALID_WALLETS
 
-    def test_calculate_trade__size_rounds_down(self):
+    def test_calculate_trade_size_rounds_down(self):
         """
-        Test that the calculate_trade__size function correctly rounds down the trade size.
+        Test that the calculate_trade_size function correctly rounds down the trade size.
         Verifies the function's behavior with various decimal inputs.
         """
         # ASSERT
-        self.assertEqual(calculate_trade__size(Decimal('9.9')), 3)
-        self.assertEqual(calculate_trade__size(Decimal('16')), 4)
-        self.assertEqual(calculate_trade__size(Decimal('0')), 0)
-        self.assertEqual(calculate_trade__size(Decimal('1.0')), 1)
-        self.assertEqual(calculate_trade__size(Decimal('100.00')), 10)
-        self.assertEqual(calculate_trade__size(Decimal('10000.92')), 100)
+        self.assertEqual(calculate_trade_size(Decimal('9.9')), 3)
+        self.assertEqual(calculate_trade_size(Decimal('16')), 4)
+        self.assertEqual(calculate_trade_size(Decimal('0')), 0)
+        self.assertEqual(calculate_trade_size(Decimal('1.0')), 1)
+        self.assertEqual(calculate_trade_size(Decimal('100.00')), 10)
+        self.assertEqual(calculate_trade_size(Decimal('10000.92')), 100)
 
-    def test_calculate_minimum_wallet_budget_returns_minimum(self):
-        """
-        Test that calculate_minimum_wallet_budget returns the minimum balance from the wallets.
-        Verifies the function's ability to correctly identify the smallest wallet balance.
-        """
-        # ASSERT
-        self.assertEqual(calculate_minimum_wallet_budget(self.wallets), 50)
+    def test_calculate_minimum_wallet_budget_returns_minimum_wallet_balance(self):
+        # Act
+        result = calculate_minimum_wallet_budget(self.wallets, self.kalshi_fees)
+        # Assert
+        self.assertEqual(result, self.polymarket_wallet.get_balance(Currency.USDC_E).amount)
+
+    def test_calculate_minimum_wallet_budget_returns_kalshi_when_kalshi_smaller(self):
+        # Adjust
+        wallets = VALID_WALLETS_LARGER_POLY
+        expected_kalshi_budget = 95 - 1  # 5% guard minus fees
+        # Act
+        result = calculate_minimum_wallet_budget(wallets, self.kalshi_fees)
+        # Assert
+        self.assertEqual(result, expected_kalshi_budget)
+
+    def test_calculate_minimum_wallet_budget_returns_kalshi_minus_fees_when_wallets_equal(self):
+        # Adjust
+        wallets = VALID_WALLETS_EQUAL
+        expected_kalshi_budget = 95 - 1  # 5% guard minus fees
+        # Act
+        result = calculate_minimum_wallet_budget(wallets, self.kalshi_fees)
+        # Assert
+        self.assertEqual(result, expected_kalshi_budget)
+        self.assertNotEqual(result, self.polymarket_wallet.get_balance(Currency.USDC_E).amount)
+
+    def test_calculate_minimum_wallet_returns_0_with_very_large_fees(self):
+        # Adjust
+        wallets = VALID_WALLETS_EQUAL
+        expected_kalshi_budget = max((95 - 97), 0)  # 5% guard minus $97 fee
+        # Act
+        result = calculate_minimum_wallet_budget(wallets, kalshi_fees=Decimal('97.00'))
+        # Assert
+        self.assertEqual(result, expected_kalshi_budget)
+        self.assertNotEqual(result, self.polymarket_wallet.get_balance(Currency.USDC_E).amount)
 
     def test_calculate_minimum_wallet_budget_handles_missing_kalshi_currency(self):
         """
@@ -55,7 +83,7 @@ class TestTradeSizeCalculations(unittest.TestCase):
             polymarket_wallet=self.polymarket_wallet,
         )
         # ASSERT
-        self.assertEqual(calculate_minimum_wallet_budget(invalid_wallets), 0)
+        self.assertEqual(calculate_minimum_wallet_budget(invalid_wallets, self.kalshi_fees), 0)
 
     def test_calculate_minimum_wallet_budget_handles_missing_polymarket_currency(self):
         """
@@ -69,7 +97,7 @@ class TestTradeSizeCalculations(unittest.TestCase):
             polymarket_wallet=empty_poly_wallet,
         )
         # ASSERT
-        self.assertEqual(calculate_minimum_wallet_budget(invalid_wallets), 0)
+        self.assertEqual(calculate_minimum_wallet_budget(invalid_wallets, self.kalshi_fees), 0)
 
     def test_get_trade_size_min_of_all_factors_with_smaller_trade_size(self):
         """
@@ -79,12 +107,13 @@ class TestTradeSizeCalculations(unittest.TestCase):
         # SETUP
         trade_opportunity_size = Decimal('49.50')  # sqrt(49) = 7
 
-        # Wallet min = min(100, 50) = 50
+        # Wallet min = min(95-1, 50) = 50
         # Final result = min(50, 7) = 7
-        result = get_trade_size(self.wallets, trade_opportunity_size)
+        result = get_trade_size(self.wallets, trade_opportunity_size, self.kalshi_fees)
 
         # ASSERT
         self.assertEqual(result, 7)
+
 
     def test_get_trade_size_min_of_all_factors_with_larger_trade_size(self):
         """
@@ -94,9 +123,9 @@ class TestTradeSizeCalculations(unittest.TestCase):
         # SETUP
         trade_opportunity_size = Decimal('10000.32')  # sqrt(10000) = 100
 
-        # Wallet min = min(100, 50) = 50
+        # Wallet min = min(95-1, 50) = 50
         # Final result = min(50, 100) = 50
-        result = get_trade_size(self.wallets, trade_opportunity_size)
+        result = get_trade_size(self.wallets, trade_opportunity_size, kalshi_fees=self.kalshi_fees)
 
         # ASSERT
         self.assertEqual(result, 50)

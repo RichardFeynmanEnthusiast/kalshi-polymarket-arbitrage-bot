@@ -24,6 +24,7 @@ _bus: MessageBus
 _shutdown_event: asyncio.Event
 _dry_run: bool = False
 _max_trade_size : Callable
+_balance_service: BalanceService
 
 
 def initialize_trade_executor(
@@ -57,7 +58,8 @@ async def handle_execute_trade(command: ExecuteTrade):
     opportunity = command.opportunity
     wallets = _balance_service.get_wallets()
     log_prefix = "[DRY RUN] " if _dry_run else ""
-    trade_size = _max_trade_size(wallets=wallets,trade_opportunity_size=opportunity.potential_trade_size)
+    trade_size = _max_trade_size(wallets=wallets,trade_opportunity_size=opportunity.potential_trade_size, kalshi_fees =
+                                 opportunity.kalshi_fees)
 
     if trade_size <= 0:
         logger.info(f"Arbitrage opportunity for {opportunity.market_id} found, but with zero potential trade size.")
