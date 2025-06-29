@@ -2,6 +2,7 @@ import asyncio
 import logging
 import uuid
 from decimal import Decimal
+from typing import Callable, Any
 
 from app.domain.events import ExecuteTrade, ArbTradeResultReceived, StoreTradeResults, TradeFailed, \
     TradeAttemptCompleted, ArbitrageTradeSuccessful
@@ -10,6 +11,7 @@ from app.domain.primitives import Platform, KalshiSide, PolySide
 from app.domain.types import TradeDetails
 from app.gateways.trade_gateway import TradeGateway
 from app.message_bus import MessageBus
+from app.strategies.trade_size import get_trade_size
 
 # --- Module Setup ---
 
@@ -20,15 +22,15 @@ _trade_repo: TradeGateway
 _bus: MessageBus
 _shutdown_event: asyncio.Event
 _dry_run: bool = False
-_max_trade_size: int = 50
+_max_trade_size : Callable
 
 
 def initialize_trade_executor(
         trade_repo: TradeGateway,
         bus: MessageBus,
         shutdown_event: asyncio.Event,
+        max_trade_size: Callable = get_trade_size, # default strategy
         dry_run: bool = False,
-        max_trade_size: int = 50,
 ):
     """Injects dependencies into the trade execution handlers module."""
     global _trade_repo, _dry_run, _max_trade_size, _bus, _shutdown_event
@@ -50,8 +52,9 @@ async def handle_execute_trade(command: ExecuteTrade):
     from the old execute_buy_both_arbitrage method.
     """
     opportunity = command.opportunity
+    wallets = command.wallets
     log_prefix = "[DRY RUN] " if _dry_run else ""
-    trade_size = int(min(Decimal(_max_trade_size), opportunity.potential_trade_size))
+    trade_size = _max_trade_size(wallets=wallets,trade_opportunity_size=opportunity.potential_trade_size)
 
     if trade_size <= 0:
         logger.info(f"Arbitrage opportunity for {opportunity.market_id} found, but with zero potential trade size.")

@@ -8,6 +8,7 @@ from app.domain.primitives import Platform, SIDES
 from app.markets.order_book import Orderbook
 from app.markets.state import MarketState, MarketOutcomes
 from app.strategies import arbitrage_monitor
+from tests.sample_data import VALID_WALLETS
 
 
 class TestArbitrageMonitor(unittest.IsolatedAsyncioTestCase):
@@ -32,6 +33,7 @@ class TestArbitrageMonitor(unittest.IsolatedAsyncioTestCase):
             market_manager=self.market_manager,
             bus=self.bus,
             markets_config=self.markets_config,
+            wallets=VALID_WALLETS
         )
         # Ensure the lock state is reset after each test for isolation
         self.addAsyncCleanup(self._reset_monitor_state)

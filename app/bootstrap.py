@@ -10,6 +10,7 @@ from app.ingestion.kalshi_wss_client import KalshiWebSocketClient
 from app.markets.manager import MarketManager
 from app.message_bus import MessageBus
 from app.gateways.trade_gateway import TradeGateway
+from app.services.operational.balance_service import BalanceService
 from app.services.unwind import unwinder
 from app.strategies import arbitrage_monitor
 from app.services.trade_storage import TradeStorage
@@ -20,6 +21,7 @@ logger = logging.getLogger(__name__)
 def bootstrap(
         bus: MessageBus,
         market_manager: MarketManager,
+        balance_service: BalanceService,
         kalshi_client: KalshiWebSocketClient,
         polymarket_client: PolymarketWebSocketClient,
         markets_config: List[dict],
@@ -41,6 +43,7 @@ def bootstrap(
         market_manager=market_manager,
         bus=bus,
         markets_config=markets_config,
+        wallets=balance_service.get_wallets(),
     )
     executor.initialize_trade_executor(
         trade_repo=trade_repo,

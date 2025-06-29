@@ -2,7 +2,12 @@ import asyncio
 import logging.config
 from typing import List
 
+from shared_wallets.domain.models import Currency
+
 from app.clients.polymarket.gamma_http import PolymGammaClient
+from app.domain.types import Wallets
+from app.gateways.balance_data_gateway import BalanceDataGateway
+from app.services.operational.balance_service import BalanceService
 from shared_infra.supabase_setup import supabase_client
 from app.gateways.kalshi_gateway import KalshiGateway
 from app.gateways.polymarket_gateway import PolymarketGateway
@@ -28,20 +33,6 @@ async def run_live_opportunity_trader(orchestrator: FletcherOrchestrator, market
     logger.info("Starting Fletcher Orchestrator...")
     await orchestrator.run_live_trading_service(market_tuples=market_tuples, dry_run=True, cool_down_seconds=5)
 
-
-def get_venue_balances(clob_http_client, kalshi_http_client) -> dict:
-    try:
-        usdc_e_bal, matic_bal = clob_http_client.get_starting_balances()
-        raw_kalshi_balance = kalshi_http_client.get_balance()
-        return {
-            "poly_usdc_e_bal": usdc_e_bal,
-            "poly_matic_bal": matic_bal / 10 ** 18,
-            "kalshi_balance": raw_kalshi_balance['balance'] / 100,
-        }
-    except Exception as e:
-        logger.error(f"Failed to get balance: {e}")
-
-
 if __name__ == "__main__":
     logging.config.dictConfig(LOGGING_CONFIG)
     logger = logging.getLogger(__name__)
@@ -64,10 +55,15 @@ if __name__ == "__main__":
     factory = KalshiClientFactory()
     kalshi_http, kalshi_wss = factory.create_both_clients()
 
-    balance_dict = get_venue_balances(clob_client, kalshi_http)
+    balance_gtwy = BalanceDataGateway(clob_http_client=clob_client, kalshi_http_client=kalshi_http)
+    balance_service = BalanceService(balance_gtwy)
+    application_wallets : Wallets = balance_service.generate_new_wallets()
+    balance_service.set_wallets(application_wallets)
+
     logger.info(
-        f"Polymarket USDC.e balance: {balance_dict['poly_usdc_e_bal']:.2f}, matic balance: {balance_dict['poly_matic_bal']:.4f}")
-    logger.info(f"Kalshi balance: ${balance_dict['kalshi_balance']:.2f}")
+        f"Polymarket USDC.e balance: {balance_service.get_wallets().polymarket_wallet.get_balance(Currency.USDC_E).amount:.2f}, "
+        f"matic balance: {balance_service.get_wallets().polymarket_wallet.get_balance(Currency.POL).amount:.2f}")
+    logger.info(f"Kalshi balance: ${balance_service.get_wallets().kalshi_wallet.get_balance(Currency.USD).amount:.2f}")
 
     # Create the central message bus
     bus = MessageBus()
@@ -108,16 +104,19 @@ if __name__ == "__main__":
         bus=bus,
         printer=printer,
         trade_storage=trade_storage,
-        market_manager=market_manager
+        market_manager=market_manager,
+        balance_service=balance_service,
     )
 
     # --- 4. Run the application ---
     try:
         asyncio.run(run_live_opportunity_trader(live_trader_service, markets_to_trade))
         # log closing balances
-        balance_dict = get_venue_balances(clob_client, kalshi_http)
         logger.info(
-            f"Closing Polymarket USDC.e balance: {balance_dict['poly_usdc_e_bal']:.2f}, matic balance: {balance_dict['poly_matic_bal']:.4f}")
-        logger.info(f"Closing Kalshi balance: ${balance_dict['kalshi_balance']:.2f}")
+
+            f"Polymarket USDC.e balance: {balance_service.get_wallets().polymarket_wallet.get_balance(Currency.USDC_E).amount:.2f}, "
+            f"matic balance: {balance_service.get_wallets().polymarket_wallet.get_balance(Currency.POL).amount:.2f}")
+        logger.info(
+            f"Kalshi balance: ${balance_service.get_wallets().kalshi_wallet.get_balance(Currency.USD).amount:.2f}")
     except (KeyboardInterrupt,  SystemExit):
         logger.info("Application shutting down...")

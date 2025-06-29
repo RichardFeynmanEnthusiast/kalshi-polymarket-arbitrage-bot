@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 
 from app.domain.models.opportunity import ArbitrageOpportunity
 from app.domain.primitives import Platform, SIDES
-from app.domain.types import KalshiOrder, PolymarketOrder, TradeDetails
+from app.domain.types import KalshiOrder, PolymarketOrder, TradeDetails, Wallets
 
 
 # --- Base Message Types ---
@@ -91,6 +91,7 @@ class ArbTradeResultReceived(BaseEvent):
 class ExecuteTrade(BaseCommand):
     """Command to instruct the execution service to place a trade."""
     opportunity: ArbitrageOpportunity
+    wallets: Wallets
 
 
 class StoreTradeResults(BaseCommand):
