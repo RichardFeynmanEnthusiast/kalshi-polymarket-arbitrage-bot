@@ -32,7 +32,7 @@ def calculate_trade_size(trade_size : Decimal) -> int:
     Returns:
         int: The calculated trade size after applying the square root and rounding down.
     """
-    sqr_root = math.sqrt(math.floor(trade_size))
+    sqr_root = math.sqrt(trade_size)
     return math.floor(sqr_root)
 
 def calculate_minimum_wallet_budget(wallets: Wallets, kalshi_fees : Money) -> int:
