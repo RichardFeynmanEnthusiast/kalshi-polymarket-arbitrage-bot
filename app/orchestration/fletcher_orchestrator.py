@@ -203,10 +203,13 @@ class FletcherOrchestrator:
         return matched_markets
 
     async def _shutdown_monitor(self):
-        """Waits for the shutdown event and then stops all tasks."""
+        """Waits for the shutdown event and then cancels the critical tasks."""
         await self.shutdown_event.wait()
-        self.logger.critical("Shutdown signal received. Stopping all services.")
-        await self.stop()
+        self.logger.critical("Shutdown signal received. Cancelling critical tasks to trigger graceful exit.")
+        for name, task in self._tasks.items():
+            if name in ("message_bus", "flush_task"):
+                if not task.done():
+                    task.cancel()
 
     async def _start(self, core_coroutines: List[Coroutine]):
         """Creates and manages all runtime tasks from the bootstrapped coroutines."""
@@ -235,8 +238,6 @@ class FletcherOrchestrator:
         try:
             # We only await the critical tasks. The WSS tasks can be managed separately.
             await asyncio.gather(*tasks_to_await)
-        except asyncio.CancelledError:
-            self.logger.info("Orchestrator's main tasks were cancelled.")
         finally:
             # If any of the critical tasks stop, initiate a full shutdown.
             await self.stop()

@@ -113,9 +113,10 @@ if __name__ == "__main__":
         asyncio.run(run_live_opportunity_trader(live_trader_service, markets_to_trade))
         # log closing balances
         logger.info(
+
             f"Polymarket USDC.e balance: {balance_service.get_wallets().polymarket_wallet.get_balance(Currency.USDC_E).amount:.2f}, "
             f"matic balance: {balance_service.get_wallets().polymarket_wallet.get_balance(Currency.POL).amount:.2f}")
         logger.info(
             f"Kalshi balance: ${balance_service.get_wallets().kalshi_wallet.get_balance(Currency.USD).amount:.2f}")
-    except KeyboardInterrupt | SystemExit:
+    except (KeyboardInterrupt,  SystemExit):
         logger.info("Application shutting down...")
