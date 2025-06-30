@@ -23,6 +23,7 @@ from app.services.operational.diagnostic_printer import DiagnosticPrinter
 from app.services.trade_storage import TradeStorage
 from app.utils.kalshi_client_factory import KalshiClientFactory
 from app.utils.polymarket_client_factory import PolymarketClientFactory
+import yappi
 
 
 async def run_live_opportunity_trader(orchestrator: FletcherOrchestrator, market_tuples: List[tuple]):
@@ -108,22 +109,24 @@ def main(minimum_balance = settings.SHUTDOWN_BALANCE):
     )
 
     # --- 4. Run the application ---
-    try:
-        asyncio.run(run_live_opportunity_trader(live_trader_service, markets_to_trade))
-        # log closing balances
-        logger.info(
-            f"Polymarket USDC.e balance: {balance_service.get_wallets().polymarket_wallet.get_balance(Currency.USDC_E).amount:.2f}, "
-            f"matic balance: {balance_service.get_wallets().polymarket_wallet.get_balance(Currency.POL).amount:.2f}")
-        logger.info(
-            f"Kalshi balance: ${balance_service.get_wallets().kalshi_wallet.get_balance(Currency.USD).amount:.2f}")
-    except (KeyboardInterrupt, SystemExit):
-        logger.info("Application shutting down...")
-
+    yappi.set_clock_type("CPU")
+    with yappi.run():
+        try:
+            asyncio.run(run_live_opportunity_trader(live_trader_service, markets_to_trade))
+            # log closing balances
+            logger.info(
+                f"Polymarket USDC.e balance: {balance_service.get_wallets().polymarket_wallet.get_balance(Currency.USDC_E).amount:.2f}, "
+                f"matic balance: {balance_service.get_wallets().polymarket_wallet.get_balance(Currency.POL).amount:.2f}")
+            logger.info(
+                f"Kalshi balance: ${balance_service.get_wallets().kalshi_wallet.get_balance(Currency.USD).amount:.2f}")
+        except (KeyboardInterrupt, SystemExit):
+            logger.info("Application shutting down...")
+    yappi.get_func_stats().print_all()
 if __name__ == "__main__":
     logging.config.dictConfig(LOGGING_CONFIG)
     logger = logging.getLogger(__name__)
 
     markets_to_trade = [
-        ("556687", "KXMLBGAME-25JUN29MINDET-MIN")
+        ("557390", "KXMLBGAME-25JUN30SDPHI-SD")
     ]
     main()
