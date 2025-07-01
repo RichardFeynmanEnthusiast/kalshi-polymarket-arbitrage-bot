@@ -65,7 +65,7 @@ class TradeGateway:
 
         return self.process_raw_polymarket_order(resp, token_id)
 
-    def place_kalshi_market_order(
+    async def place_kalshi_market_order(
             self,
             ticker: str,
             side: KalshiSide,
@@ -76,20 +76,20 @@ class TradeGateway:
         """
         Places a true market order on Kalshi.
         """
-        resp = self.kalshi.create_order(
+        resp = await self.kalshi.create_order(
             action=action, side=side.value, type="market",
             ticker=ticker, count=count, client_order_id=client_order_id
         )
         return self.process_raw_kalshi_order(resp, trade_size=Decimal(count))
 
-    def place_polymarket_market_order(self, token_id: str, size: float, side: PolySide) -> PolymarketOrder:
+    async def place_polymarket_market_order(self, token_id: str, size: float, side: PolySide) -> PolymarketOrder:
         """
         Places a market order on Polymarket using an aggressive-priced FOK limit order,
         as per the official documentation.
         """
         # For a market SELL, set a very low price to guarantee it crosses the spread
         aggressive_price = 0.01 if side == PolySide.SELL else 0.99
-        resp = self.polymarket.place_order(
+        resp = await self.polymarket.place_order(
             token_id=token_id,
             price=float(aggressive_price),
             size=size,
