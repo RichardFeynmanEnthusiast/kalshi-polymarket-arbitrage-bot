@@ -3,6 +3,7 @@ import logging.config
 from decimal import Decimal
 from typing import List
 
+import yappi
 from shared_wallets.domain.models import Currency
 
 from app.clients.polymarket.gamma_http import PolymGammaClient
@@ -124,6 +125,6 @@ if __name__ == "__main__":
     logger = logging.getLogger(__name__)
 
     markets_to_trade = [
-        ("556687", "KXMLBGAME-25JUN29MINDET-MIN")
+        ("550037", "KXNEWPARTYMUSK-26")
     ]
     main()
