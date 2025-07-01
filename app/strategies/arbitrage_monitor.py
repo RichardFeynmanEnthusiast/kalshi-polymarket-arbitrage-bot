@@ -11,7 +11,7 @@ from app.markets.state import MarketState
 from app.message_bus import MessageBus
 # --- Module Setup ---
 
-getcontext().prec = 18
+getcontext().prec = 6
 logger = logging.getLogger(__name__)
 PROFITABILITY_BUFFER = Decimal("0.01")
 STALENESS_THRESHOLD = timedelta(seconds=5)
