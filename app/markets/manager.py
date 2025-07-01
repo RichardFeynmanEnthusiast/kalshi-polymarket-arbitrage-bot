@@ -47,8 +47,7 @@ class MarketManager(IMarketStateQuerier):
         Initializes a full MarketState domain model for a new market_id.
         """
         if market_id not in self.market_states:
-            self.logger.info(f"Registering new market: {market_id}")
-
+            self.logger.info("Registering new market: %s", market_id)
             # Create the state model for this market
             market_state = MarketState(market_id=market_id)
             # Kalshi only has one normalized book
@@ -76,15 +75,24 @@ class MarketManager(IMarketStateQuerier):
 
         # Clear the book before applying snapshot
         book.clear()
-        self.logger.debug(f"Cleared {event.platform} {event.outcome} book for {event.market_id}")
+        self.logger.debug(
+            "Cleared %s %s book for %s",
+            event.platform,
+            event.outcome,
+            event.market_id
+        )
 
-        for level in event.bids:
-            book.apply_update(SIDES.BUY, level.price, level.size)
-        for level in event.asks:
-            book.apply_update(SIDES.SELL, level.price, level.size)
+        updates = [(level.price, level.size) for level in event.bids]
+        book.apply_updates(SIDES.BUY, updates)
+        updates = [(level.price, level.size) for level in event.asks]
+        book.apply_updates(SIDES.SELL, updates)
 
         if old_tob != book.get_top_of_book():
-            self.logger.info(f"Top-of-book changed for {event.market_id} via snapshot on platform {event.platform}.")
+            self.logger.info(
+                "Top-of-book changed for %s via snapshot on platform %s.",
+                event.market_id,
+                event.platform
+            )
             await self._emit_book_update(event)
 
     async def _handle_delta(self, event: OrderBookDeltaReceived) -> None:
@@ -102,7 +110,11 @@ class MarketManager(IMarketStateQuerier):
         book.apply_update(event.side, event.price, event.size)
 
         if old_tob != book.get_top_of_book():
-            self.logger.info(f"Top-of-book changed for {event.market_id} via delta on platform {event.platform}.")
+            self.logger.info(
+                "Top-of-book changed for %s via snapshot on platform %s.",
+                event.market_id,
+                event.platform
+            )
             await self._emit_book_update(event)
 
     async def _emit_book_update(self, source_event: Union[OrderBookSnapshotReceived, OrderBookDeltaReceived]) -> None:
