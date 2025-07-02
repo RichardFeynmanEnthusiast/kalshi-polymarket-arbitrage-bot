@@ -7,6 +7,7 @@ from app.domain.models.opportunity import ArbitrageOpportunityRecord
 from app.message_bus import MessageBus
 from app.gateways.trade_gateway import TradeGateway
 from app.gateways.attempted_opportunities_gateway import AttemptedOpportunitiesGateway
+from app.settings.settings import settings
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +80,8 @@ class TradeStorage:
 
     async def handle_trade_results_received(self, command: StoreTradeResults):
         """ Handle trade results received from the execution service"""
+        if settings.DRY_RUN:
+            return
         async with self._lock:
             self.trade_results.append(command.arb_trade_results)
 
@@ -91,7 +94,6 @@ class TradeStorage:
         if not self.trade_results:
             logger.info("No trade results to flush")
             return
-            
         batch_to_flush = self.trade_results.copy()
         self.trade_results.clear()
         

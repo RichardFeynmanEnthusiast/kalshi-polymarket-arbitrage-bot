@@ -28,6 +28,9 @@ from app.services.trade_storage import TradeStorage
 from app.utils.kalshi_client_factory import KalshiClientFactory
 from app.utils.polymarket_client_factory import PolymarketClientFactory
 
+logging.config.dictConfig(LOGGING_CONFIG)
+logger = logging.getLogger(__name__)
+
 @dataclass
 class AppDependencies:
     # operational services
@@ -147,8 +150,6 @@ async def main(enable_diagnostic_printer: bool):
 
 
 if __name__ == "__main__":
-    logging.config.dictConfig(LOGGING_CONFIG)
-    logger = logging.getLogger(__name__)
     enable_diagnostic_printer = False
     try:
         asyncio.run(main(enable_diagnostic_printer=enable_diagnostic_printer))
