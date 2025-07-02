@@ -4,7 +4,6 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, Optional, List
 
 import aiohttp
-import pandas as pd
 import requests
 from cryptography.hazmat.primitives.asymmetric import rsa
 
@@ -169,7 +168,7 @@ class KalshiHttpClient(KalshiBaseClient):
             self,
             status: str = "open",
             limit: int = 200,
-    ) -> pd.DataFrame:
+    ):
         """
         Fetches all events (paginating through cursors) and return a
         Dataframe of unique events
@@ -194,9 +193,9 @@ class KalshiHttpClient(KalshiBaseClient):
 
             params["cursor"] = cursor
 
-        df = pd.DataFrame(all_events)
+        df = all_events
 
-        return df.drop_duplicates(subset=["event_ticker"]).reset_index(drop=True)
+        return all_events
 
     def get_market(self, ticker: str):
         """ Fetches a single market given a market ticker"""
@@ -214,7 +213,7 @@ class KalshiHttpClient(KalshiBaseClient):
             self,
             status: str = "open",
             limit: int = 1000,
-    ) -> pd.DataFrame:
+    ):
         """
         Fetches all markets (paginating through cursors) and return a DataFrame
         """
@@ -239,8 +238,7 @@ class KalshiHttpClient(KalshiBaseClient):
 
             params["cursor"] = cursor
 
-        df = pd.DataFrame(all_markets)
-        return df.drop_duplicates(subset=["ticker"]).reset_index(drop=True)
+        return all_markets
 
     async def create_order(
         self,
