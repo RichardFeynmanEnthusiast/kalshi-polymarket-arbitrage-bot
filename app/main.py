@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import List, Tuple, Optional
 
+import yappi
 from shared_wallets.domain.models import Currency
 
 from app.clients.kalshi import KalshiHttpClient
@@ -149,9 +150,14 @@ async def main(enable_diagnostic_printer: bool):
     await double_time.start()
 
 
+
 if __name__ == "__main__":
     enable_diagnostic_printer = False
     try:
         asyncio.run(main(enable_diagnostic_printer=enable_diagnostic_printer))
     except (KeyboardInterrupt, SystemExit):
         logger.info("Application shutting down...")
+    markets_to_trade = [
+        ("550037", "KXNEWPARTYMUSK-26")
+    ]
+    main()

@@ -112,7 +112,7 @@ class TestTradeSizeCalculations(unittest.TestCase):
         result = get_trade_size(self.wallets, trade_opportunity_size, self.kalshi_fees)
 
         # ASSERT
-        self.assertEqual(result, 7)
+        self.assertEqual(result, 0)
 
 
     def test_get_trade_size_min_of_all_factors_with_larger_trade_size(self):

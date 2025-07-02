@@ -10,7 +10,7 @@ from typing_extensions import Optional, Tuple
 
 from app.domain.primitives import Money, SIDES
 
-getcontext().prec = 18
+getcontext().prec = 10
 
 
 class PriceLevel(BaseModel):
@@ -52,6 +52,20 @@ class Orderbook:
             book_side.pop(price, None)
         else:
             book_side[price] = size
+        self.last_update = datetime.now(timezone.utc)
+
+    def apply_updates(self, side: str, updates: List[Tuple[Decimal, Decimal]]) -> None:
+        """
+        Applies multiple normalized updates (price, size) to the book side.
+        """
+        book_side = self.bids if side == SIDES.BUY else self.asks
+
+        for price, size in updates:
+            if size.is_zero():
+                book_side.pop(price, None)
+            else:
+                book_side[price] = size
+
         self.last_update = datetime.now(timezone.utc)
 
     def get_top_of_book(self) -> Tuple[Optional[Tuple[Decimal, Decimal]], Optional[Tuple[Decimal, Decimal]]]:
