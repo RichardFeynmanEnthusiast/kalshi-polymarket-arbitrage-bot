@@ -1,3 +1,5 @@
+""" Integration tests for the message bus"""
+
 import unittest
 from decimal import Decimal
 import asyncio
@@ -20,6 +22,7 @@ class TestMessageBus(unittest.IsolatedAsyncioTestCase):
         self.db_client = SupabaseClient()
         self.trade_gateway = TradeGateway(kalshi_http=None, polymarket_http=None) # not needed
         self.attempted_opps_gtwy = AttemptedOpportunitiesGateway(self.db_client.client)
+        self.attempted_opps_gtwy._table_name = 'attempted_opportunities_test' # needed to set to test table
 
         # Mock shut down event
         self.shutdown_event = MagicMock(spec=asyncio.Event)

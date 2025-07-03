@@ -3,13 +3,14 @@ import logging
 from typing import List
 
 from app.domain.models.opportunity import ArbitrageOpportunityRecord
+from app.settings.settings import settings
 
 
 class AttemptedOpportunitiesGateway:
     def __init__(self, supabase_client):
         self.logger = logging.getLogger(__name__)
         self.db_client = supabase_client
-        self._table_name = "attempted_opportunities"
+        self._table_name = "attempted_opportunities" if settings.DRY_RUN else "attempted_opportunities_dry"
 
     @staticmethod
     def serialize_opportunities(arb_opportunities: List[ArbitrageOpportunityRecord]) -> List[dict]:
