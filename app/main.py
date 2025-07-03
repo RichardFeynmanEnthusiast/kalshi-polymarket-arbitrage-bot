@@ -4,13 +4,9 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import List, Tuple, Optional
 
-import yappi
 from shared_wallets.domain.models import Currency
 
-from app.clients.kalshi import KalshiHttpClient
-from app.clients.polymarket.clob_http import PolymClobHttpClient
 from app.clients.polymarket.gamma_http import PolymGammaClient
-from app.clients.supabase import SupabaseClient
 from app.gateways.balance_data_gateway import BalanceDataGateway
 from app.services.operational.balance_service import BalanceService
 from shared_infra.supabase_setup import supabase_client
@@ -115,7 +111,7 @@ async def main(enable_diagnostic_printer: bool):
     market_manager = MarketManager(bus)
     automatic_flush_minutes = 30
     trade_storage = TradeStorage(bus=bus, trade_repo=trade_repo, attempted_opportunities_repo=attempted_opps_repo,
-                                 batch_size=100, flush_interval_seconds=automatic_flush_minutes * 60)
+                                 batch_size=1, flush_interval_seconds=automatic_flush_minutes * 60)
     balance_service = BalanceService(BalanceDataGateway(clob_http_client=clob_client, kalshi_http_client=kalshi_http),
                                      minimum_balance=Decimal(settings.SHUTDOWN_BALANCE))
 
@@ -152,12 +148,10 @@ async def main(enable_diagnostic_printer: bool):
 
 
 if __name__ == "__main__":
-    enable_diagnostic_printer = False
     try:
-        asyncio.run(main(enable_diagnostic_printer=enable_diagnostic_printer))
+        asyncio.run(main(enable_diagnostic_printer=False))
     except (KeyboardInterrupt, SystemExit):
         logger.info("Application shutting down...")
     markets_to_trade = [
         ("550037", "KXNEWPARTYMUSK-26")
     ]
-    main()

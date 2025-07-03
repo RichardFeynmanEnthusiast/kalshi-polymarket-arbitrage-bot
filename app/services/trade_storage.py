@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 from typing import List, Optional
 
@@ -7,7 +8,6 @@ from app.domain.models.opportunity import ArbitrageOpportunityRecord
 from app.message_bus import MessageBus
 from app.gateways.trade_gateway import TradeGateway
 from app.gateways.attempted_opportunities_gateway import AttemptedOpportunitiesGateway
-from app.settings.settings import settings
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +23,7 @@ class TradeStorage:
         bus: MessageBus, 
         trade_repo: TradeGateway,
         attempted_opportunities_repo: AttemptedOpportunitiesGateway ,
-        batch_size: int = 1,
+        batch_size: int = 5,
         flush_interval_seconds: int = FLUSH_MINUTES * 60
     ):
         self.bus = bus
@@ -97,12 +97,12 @@ class TradeStorage:
         
         try:
             # Store the batch in the database
-            result = await self._store_trade_results(trade_results=batch_to_flush)
-
-            if isinstance(result, list):
-                logger.info(f"Flushed {len(result)} trade results to database")
+            logger.info(f"Flushing {len(batch_to_flush)} trade results to database")
+            response = await self._store_trade_results(trade_results=batch_to_flush)
+            if isinstance(response.data, list):
+                logger.info(f"Flushed {len(response.data)} trade results to database")
             else:
-                logger.info(f"Something went wrong flushing to the database")
+                logger.info(f"Something went wrong flushing to the database: {response}")
 
         except Exception as e:
             logger.error(f"Failed to flush trade batch: {e}", exc_info=True)
@@ -111,9 +111,10 @@ class TradeStorage:
                 self.trade_results.extend(batch_to_flush)
 
     async def _store_trade_results(self, trade_results: List[ArbTradeResultReceived]):
-        """Store trade results in the database"""
+        """Store trade results in the database. Returns a postgres response."""
         records = self._create_records(trade_results)
-        self.attempted_opp_repo.add_attempted_opportunities_repository(records)
+        res = self.attempted_opp_repo.add_attempted_opportunities_repository(records)
+        return res
 
     @staticmethod
     def _create_records(trade_results : List[ArbTradeResultReceived]) -> List[ArbitrageOpportunityRecord]:

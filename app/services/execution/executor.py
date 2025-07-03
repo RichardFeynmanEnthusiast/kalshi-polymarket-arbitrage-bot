@@ -57,7 +57,10 @@ async def handle_execute_trade(command: ExecuteTrade):
     opportunity = command.opportunity
     wallets = _balance_service.get_wallets()
     log_prefix = "[DRY RUN] " if _dry_run else ""
-    trade_size = _max_trade_size(wallets=wallets,trade_opportunity_size=opportunity.potential_trade_size, kalshi_fees =
+    if _dry_run:
+        trade_size = _max_trade_size(opportunity)
+    else:
+        trade_size = _max_trade_size(wallets=wallets,trade_opportunity_size=opportunity.potential_trade_size, kalshi_fees =
                                  opportunity.kalshi_fees)
 
     if trade_size <= 0:
@@ -153,15 +156,26 @@ async def handle_trade_response(kalshi_result, polymarket_result, trade_type : s
     is_polymarket_error = isinstance(polymarket_result, Exception)
 
     # Store results in database
-    arb_trade_result = ArbTradeResultReceived(
-        trade_type=trade_type,
-        category=None,
-        opportunity=opportunity,
-        kalshi_order=None if is_kalshi_error else kalshi_result,
-        polymarket_order=None if is_polymarket_error else polymarket_result,
-        kalshi_error_message=str(kalshi_result) if is_kalshi_error else None,
-        polymarket_error_message=str(polymarket_result) if is_polymarket_error else None
-    )
+    if _dry_run:
+        arb_trade_result = ArbTradeResultReceived(
+            trade_type=trade_type,
+            category=None,
+            opportunity=opportunity,
+            kalshi_order=None,
+            polymarket_order=None,
+            kalshi_error_message="Dry Run",
+            polymarket_error_message="Dry Run",
+        )
+    else:
+        arb_trade_result = ArbTradeResultReceived(
+            trade_type=trade_type,
+            category=None,
+            opportunity=opportunity,
+            kalshi_order=None if is_kalshi_error else kalshi_result,
+            polymarket_order=None if is_polymarket_error else polymarket_result,
+            kalshi_error_message=str(kalshi_result) if is_kalshi_error else None,
+            polymarket_error_message=str(polymarket_result) if is_polymarket_error else None
+        )
     await store_trade(StoreTradeResults(arb_trade_results=arb_trade_result))
     # trigger unwind on delay
     is_polymarket_error = True if getattr(polymarket_result, "status", None) == "delayed" else is_polymarket_error
