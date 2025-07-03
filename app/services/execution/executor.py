@@ -1,8 +1,7 @@
 import asyncio
 import logging
 import uuid
-from decimal import Decimal
-from typing import Callable, Any
+from typing import Callable
 
 from app.domain.events import ExecuteTrade, ArbTradeResultReceived, StoreTradeResults, TradeFailed, \
     TradeAttemptCompleted, ArbitrageTradeSuccessful
@@ -58,7 +57,10 @@ async def handle_execute_trade(command: ExecuteTrade):
     opportunity = command.opportunity
     wallets = _balance_service.get_wallets()
     log_prefix = "[DRY RUN] " if _dry_run else ""
-    trade_size = _max_trade_size(wallets=wallets,trade_opportunity_size=opportunity.potential_trade_size, kalshi_fees =
+    if _dry_run:
+        trade_size = _max_trade_size(opportunity)
+    else:
+        trade_size = _max_trade_size(wallets=wallets,trade_opportunity_size=opportunity.potential_trade_size, kalshi_fees =
                                  opportunity.kalshi_fees)
 
     if trade_size <= 0:
@@ -87,7 +89,7 @@ async def handle_execute_trade(command: ExecuteTrade):
     kalshi_result, polymarket_result = await asyncio.gather(kalshi_task, polymarket_task, return_exceptions=True)
 
     # Publish arbitrage trade results to the bus
-    await handle_trade_response(kalshi_result, polymarket_result, category="buy both", opportunity=opportunity)
+    await handle_trade_response(kalshi_result, polymarket_result, trade_type="buy both", opportunity=opportunity)
 
 
 # --- Execution Logic ---
@@ -146,7 +148,7 @@ async def _execute_polymarket_buy_no(opportunity: ArbitrageOpportunity, size: in
     )
 
 
-async def handle_trade_response(kalshi_result, polymarket_result, category, opportunity: ArbitrageOpportunity):
+async def handle_trade_response(kalshi_result, polymarket_result, trade_type : str, opportunity: ArbitrageOpportunity):
     """
     This handler processes the data and publishes the processed data to the bus.
     """
@@ -154,16 +156,29 @@ async def handle_trade_response(kalshi_result, polymarket_result, category, oppo
     is_polymarket_error = isinstance(polymarket_result, Exception)
 
     # Store results in database
-    arb_trade_result = ArbTradeResultReceived(
-        category=category,
-        opportunity=opportunity,
-        kalshi_order=None if is_kalshi_error else kalshi_result,
-        polymarket_order=None if is_polymarket_error else polymarket_result,
-        kalshi_error_message=str(kalshi_result) if is_kalshi_error else None,
-        polymarket_error=str(polymarket_result) if is_polymarket_error else None
-    )
+    if _dry_run:
+        arb_trade_result = ArbTradeResultReceived(
+            trade_type=trade_type,
+            category=None,
+            opportunity=opportunity,
+            kalshi_order=None,
+            polymarket_order=None,
+            kalshi_error_message="Dry Run",
+            polymarket_error_message="Dry Run",
+        )
+    else:
+        arb_trade_result = ArbTradeResultReceived(
+            trade_type=trade_type,
+            category=None,
+            opportunity=opportunity,
+            kalshi_order=None if is_kalshi_error else kalshi_result,
+            polymarket_order=None if is_polymarket_error else polymarket_result,
+            kalshi_error_message=str(kalshi_result) if is_kalshi_error else None,
+            polymarket_error_message=str(polymarket_result) if is_polymarket_error else None
+        )
     await store_trade(StoreTradeResults(arb_trade_results=arb_trade_result))
-
+    # trigger unwind on delay
+    is_polymarket_error = True if getattr(polymarket_result, "status", None) == "delayed" else is_polymarket_error
     # Scenario: Both legs failed. Trigger application shutdown.
     if is_kalshi_error and is_polymarket_error:
         logger.critical("Both trade legs failed. Triggering application shutdown.")

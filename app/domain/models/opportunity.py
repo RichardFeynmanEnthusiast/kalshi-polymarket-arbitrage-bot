@@ -36,13 +36,15 @@ class ArbitrageOpportunityRecord(BaseModel):
     snapshot for comprehensive historical tracking.
     """
     arbitrage_opportunity: ArbitrageOpportunity
-    category: str
-    market_books_snapshot: Optional[Dict[str, Any]] = Field(default=None, description="Complete market books state when arbitrage was detected")
+    trade_type: str
+    category: Optional[str]
+    market_books_snapshot: Optional[Dict[Any, Any]] = Field(default=None, description="Complete market books state when arbitrage was detected")
     detected_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    poly_trade_executed: bool = Field(default=False)
+    poly_trade_executed: str = Field(default=None, description="true, false, or delayed")
     poly_order_id: Optional[str] = None
-    kalshi_trade_executed: bool = Field(default=False)
+    kalshi_trade_executed: str = Field(default=None, description="resting, canceled, executed or pending")
     kalshi_order_id: Optional[str] = None
+    contracts_purchased: Optional[float] = None
     id: Optional[int] = Field(default=None, description="Database primary key")
     created_at: Optional[datetime] = Field(default=None, description="Database record creation timestamp")
 
@@ -64,11 +66,11 @@ class ArbitrageOpportunityRecord(BaseModel):
 
     def serialize(self):
         try:
-            base_data = self.model_dump(mode='json', exclude_none=True, exclude={"arbitrage_opportunity": {"kalshi_fees"}})
+            base_data = self.model_dump(mode='json', exclude_none=True)
             arb_opp_data = base_data.pop('arbitrage_opportunity', {})
             return {**base_data, **arb_opp_data}
         except Exception as e:
-            raise RuntimeError(f"Failed to serialize {self.arbitrage_opportunity} in category {self.category}. Detail: {e}") from e
+            raise RuntimeError(f"Failed to serialize {self.arbitrage_opportunity} in category {self.trade_type}. Detail: {e}") from e
 
 
 class ArbType(str, Enum):

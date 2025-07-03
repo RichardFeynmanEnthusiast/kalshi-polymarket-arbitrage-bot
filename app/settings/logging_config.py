@@ -87,6 +87,16 @@ LOGGING_CONFIG = {
             "level": "INFO",
             "propagate": False,
         },
+        "httpx": {
+            "handlers": ["service_file", "console"],  # or use a dedicated file if you want
+            "level": "DEBUG",
+            "propagate": False,
+        },
+        "httpcore": {
+            "handlers": ["service_file", "console"],  # or use a dedicated file if you want
+            "level": "DEBUG",
+            "propagate": False,
+        },
     },
     # The root logger catches all other logs
     "root": {
