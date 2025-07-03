@@ -1,12 +1,24 @@
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional, List
+from enum import Enum
 
 from pydantic import BaseModel, Field, ConfigDict
 
 from app.domain.primitives import Platform
 from shared_wallets.domain.models import ExchangeWallet
 
+class KalshiOrderStatus(str, Enum):
+    RESTING = "resting"
+    CANCELED = "canceled"
+    EXECUTED = "executed"
+    PENDING = "pending"
+
+class PolymarketOrderStatus(str, Enum):
+    DELAYED = "delayed"
+    MATCHED = "matched"
+    UNMATCHED = "unmatched"
+    LIVE = "live"
 
 class KalshiOrder(BaseModel):
     action: Optional[str] = None
