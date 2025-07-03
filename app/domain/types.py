@@ -35,9 +35,9 @@ class PolymarketOrder(BaseModel):
     transactionsHashes: Optional[List[str]] = None
     success: bool = Field(default=False)
     trade_size: Optional[Decimal] = None
-    token_id: Optional[str] = None
+    token_id: Optional[str] = None # not in raw response
 
-    model_config = ConfigDict(extra='ignore')
+    model_config = ConfigDict(extra='allow')
 
 
 class TradeDetails(BaseModel):

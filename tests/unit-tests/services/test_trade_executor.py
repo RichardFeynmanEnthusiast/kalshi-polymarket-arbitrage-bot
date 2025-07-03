@@ -76,7 +76,7 @@ class TestExecutor(unittest.IsolatedAsyncioTestCase):
         await executor.handle_trade_response(
             kalshi_result=self.dummy_valid_kalshi_response,
             polymarket_result=self.dummy_valid_poly_response,
-            category="buy both",
+            trade_type="buy both",
             opportunity=self.dummy_opportunity
         )
 
@@ -100,7 +100,7 @@ class TestExecutor(unittest.IsolatedAsyncioTestCase):
         await executor.handle_trade_response(
             kalshi_result=kalshi_error,
             polymarket_result=polymarket_error,
-            category="buy both",
+            trade_type="buy both",
             opportunity=self.dummy_opportunity
         )
 
@@ -169,7 +169,7 @@ class TestExecutor(unittest.IsolatedAsyncioTestCase):
         await executor.handle_trade_response(
             kalshi_result=self.dummy_valid_kalshi_response,
             polymarket_result=self.dummy_valid_poly_response,
-            category="buy both",
+            trade_type="buy both",
             opportunity=self.dummy_opportunity
         )
 
@@ -205,7 +205,7 @@ class TestExecutor(unittest.IsolatedAsyncioTestCase):
         await executor.handle_trade_response(
             kalshi_result=self.dummy_valid_kalshi_response,
             polymarket_result=self.dummy_valid_poly_response,
-            category="buy both",
+            trade_type="buy both",
             opportunity=self.dummy_opportunity
         )
 

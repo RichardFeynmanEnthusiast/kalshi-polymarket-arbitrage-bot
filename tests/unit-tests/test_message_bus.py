@@ -112,7 +112,7 @@ class TestMessageBus(unittest.IsolatedAsyncioTestCase):
             await executor.handle_trade_response(
                 kalshi_result=self.dummy_valid_kalshi_response,
                 polymarket_result=self.dummy_poly_order_response,
-                category="buy both",
+                trade_type="buy both",
                 opportunity=self.dummy_opportunity
             )
             # Allow some time for async operations to complete
@@ -188,7 +188,7 @@ class TestMessageBus(unittest.IsolatedAsyncioTestCase):
             await executor.handle_trade_response(
                 kalshi_result=self.dummy_valid_kalshi_response,
                 polymarket_result=self.dummy_poly_order_response,
-                category="buy both",
+                trade_type="buy both",
                 opportunity=self.dummy_opportunity
             )
             # Allow some time for async operations to complete
@@ -213,7 +213,7 @@ class TestMessageBus(unittest.IsolatedAsyncioTestCase):
             await executor.handle_trade_response(
                 kalshi_result=self.dummy_valid_kalshi_response,
                 polymarket_result=self.dummy_poly_order_response,
-                category="buy both",
+                trade_type="buy both",
                 opportunity=self.dummy_opportunity
             )
         await asyncio.sleep(2) # other tasks
@@ -222,7 +222,7 @@ class TestMessageBus(unittest.IsolatedAsyncioTestCase):
             await executor.handle_trade_response(
                 kalshi_result=self.dummy_valid_kalshi_response,
                 polymarket_result=self.dummy_poly_order_response,
-                category="buy both",
+                trade_type="buy both",
                 opportunity=self.dummy_opportunity
             )
 

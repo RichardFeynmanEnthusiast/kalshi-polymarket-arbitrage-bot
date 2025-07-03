@@ -1,15 +1,16 @@
 from decimal import Decimal
+
 from sortedcontainers import SortedDict
 from typing import Dict
 
-from app.domain.events import OrderBookSnapshotReceived, PriceLevelData
+from app.domain.events import OrderBookSnapshotReceived, PriceLevelData, ArbTradeResultReceived
 from app.domain.primitives import Money as pMoney
 from shared_wallets.domain.types import Currency, Money
 from shared_wallets.domain.models import ExchangeWallet, Exchange
 
-from app.domain.models.opportunity import ArbitrageOpportunity
+from app.domain.models.opportunity import ArbitrageOpportunity, ArbitrageOpportunityRecord
 from app.domain.primitives import Platform
-from app.domain.types import Wallets
+from app.domain.types import Wallets, PolymarketOrder, KalshiOrder
 from app.markets.order_book import Orderbook
 from app.markets.state import MarketState, MarketOutcomes
 
@@ -50,6 +51,16 @@ DUMMY_ARB_OPPORTUNITY_BUY_BOTH = ArbitrageOpportunity(
             polymarket_no_token_id="no-token",
             kalshi_fees= pMoney("0.00")
         )
+
+DUMMY_ARB_OPP_RECORD_ERROR_CASE = ArbitrageOpportunityRecord(
+    arbitrage_opportunity=DUMMY_ARB_OPPORTUNITY_BUY_BOTH,
+    trade_type="test buy both",
+    category="test",
+    poly_order_id=None,
+    poly_trade_executed="Error",
+    kalshi_order_id=None,
+    kalshi_trade_executed="Error",
+)
 
 # --- Dummy wallet amounts
 
@@ -157,3 +168,34 @@ SAMPLE_MARKET_STATES : Dict[str, MarketState] = {
 }
 
 SAMPLE_MARKET_STATE = SAMPLE_MARKET_STATES['KXNEWPARTYMUSK-26']
+
+# -- Dummy store arb trade result
+
+DELAYED_POLY_ORDER = PolymarketOrder(errorMsg='', orderID='0xbdf6fd6e02aae5bb216d2d4a77a37ace7a8335b5e334c03cab360d21529a251d',
+                                     takerAmount=None, makingAmount='', status='delayed',
+                                     transactionsHashes=None, success=True, trade_size=Decimal('0'),
+                                     token_id='33414565123662923315461359806097929043408497309696922880816129544008869901288')
+VALID_KALSHI_ORDER = kalshi_order=KalshiOrder(action='buy', client_order_id='5f35e1b8-d2fd-45ed-bc06-6273d5440c11',
+                                              expiration_time=None, no_price=88, order_id='03a87319-5c1b-4293-bc7b-d19a3b7a3d0c',
+                                              side='no', status='executed', ticker='KXMLBGAME-25JUN29MINDET-MIN', type='limit',
+                                              user_id='d6982648-9e12-4be6-9c73-759ca49fab21',
+                                              yes_price=12, trade_size=Decimal('14'),
+                                            #  raw data included extra: self_trade_prevention_type='', order_group_id=''
+                                              )
+DUMMY_STORE_ARB_OPP_WITH_DELAY = ArbitrageOpportunity(market_id='KXMLBGAME-25JUN29MINDET-MIN', buy_yes_platform=Platform.POLYMARKET, buy_yes_price=Decimal('0.1'),
+buy_no_platform=Platform.KALSHI, buy_no_price=Decimal('0.88'), profit_margin=Decimal('0.012584195361579519'),
+potential_trade_size=Decimal('211.71'), kalshi_ticker='KXMLBGAME-25JUN29MINDET-MIN',
+                     polymarket_yes_token_id='33414565123662923315461359806097929043408497309696922880816129544008869901288',
+polymarket_no_token_id='108991674822934210152793546807665862172198174562425800311070020667801452352808',
+kalshi_fees=Decimal('0.00741580463842048085'))
+
+DELAYED_POLY_TRADE_RESULT = ArbTradeResultReceived(
+    trade_type="buy both",
+    category="sports",
+    opportunity=DUMMY_STORE_ARB_OPP_WITH_DELAY,
+    polymarket_order=DELAYED_POLY_ORDER,
+    kalshi_order=VALID_KALSHI_ORDER,
+    polymarket_error_message=None,
+    kalshi_error_message=None
+)
+

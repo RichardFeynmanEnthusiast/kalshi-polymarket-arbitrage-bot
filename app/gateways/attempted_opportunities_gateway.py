@@ -10,7 +10,7 @@ class AttemptedOpportunitiesGateway:
     def __init__(self, supabase_client):
         self.logger = logging.getLogger(__name__)
         self.db_client = supabase_client
-        self._table_name = "attempted_opportunities" if settings.DRY_RUN else "attempted_opportunities_dry"
+        self._table_name = "attempted_opportunities_dry" if settings.DRY_RUN else "attempted_opportunities"
 
     @staticmethod
     def serialize_opportunities(arb_opportunities: List[ArbitrageOpportunityRecord]) -> List[dict]:
@@ -22,6 +22,7 @@ class AttemptedOpportunitiesGateway:
             res = self.db_client.table(self._table_name).insert(self.serialize_opportunities(attempted_opportunities)).execute()
             return res
         except Exception as e:
+            print(f"Failed to insert opportunities. Detail: {e}")
             self.logger.error(f"Failed to insert opportunities. Detail: {e}")
     
     def get_attempted_opportunities(self) -> List[ArbitrageOpportunityRecord]:

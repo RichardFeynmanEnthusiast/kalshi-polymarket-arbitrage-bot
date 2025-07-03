@@ -6,14 +6,15 @@ from decimal import Decimal
 from app.services.trade_storage import TradeStorage
 from app.domain.types import KalshiOrder, PolymarketOrder
 from app.domain.events import ArbTradeResultReceived, StoreTradeResults
-from app.domain.models.opportunity import ArbitrageOpportunity
+from app.domain.models.opportunity import ArbitrageOpportunity, ArbitrageOpportunityRecord
 from app.domain.primitives import Platform
 from app.message_bus import MessageBus
 from app.gateways.trade_gateway import TradeGateway
 from app.gateways.attempted_opportunities_gateway import AttemptedOpportunitiesGateway
 from app.clients.supabase import SupabaseClient
 from tests.sample_data import (DUMMY_VALID_KALSHI_ORDER_RESPONSE,
-                               DUMMY_ARB_OPPORTUNITY_BUY_BOTH, DUMMY_VALID_POLYMARKET_ORDER_RESPONSE)
+                               DUMMY_ARB_OPPORTUNITY_BUY_BOTH, DUMMY_VALID_POLYMARKET_ORDER_RESPONSE,
+                               DELAYED_POLY_TRADE_RESULT)
 
 class TestTradeStorage(unittest.IsolatedAsyncioTestCase):
     """Test the TradeStorage service with actual database"""
@@ -25,6 +26,7 @@ class TestTradeStorage(unittest.IsolatedAsyncioTestCase):
         # Create real database connection
         self.supabase_client = SupabaseClient()
         self.attempted_opps_repo = AttemptedOpportunitiesGateway(self.supabase_client.client)
+        self.attempted_opps_repo._table_name = "attempted_opportunities_test"
 
         # Create mock trade repository (since we don't need real trading)
         self.mock_trade_repo = MagicMock(spec=TradeGateway)
@@ -71,7 +73,7 @@ class TestTradeStorage(unittest.IsolatedAsyncioTestCase):
         
         # Create test trade result
         trade_result = ArbTradeResultReceived(
-            category="buy_both",
+            trade_type="buy_both",
             opportunity=self.opportunity,
             kalshi_order=self.dummy_kalshi_order,
             polymarket_order=self.dummy_poly_order
@@ -120,7 +122,7 @@ class TestTradeStorage(unittest.IsolatedAsyncioTestCase):
 
         # Create test trade result
         trade_result = ArbTradeResultReceived(
-            category="buy_both",
+            trade_type="buy_both",
             opportunity=self.opportunity,
             kalshi_order=self.dummy_kalshi_order,
             polymarket_order=self.dummy_poly_order
@@ -159,13 +161,13 @@ class TestTradeStorage(unittest.IsolatedAsyncioTestCase):
         # initialize sample trades
 
         trade_result_1 = ArbTradeResultReceived(
-            category="buy_both_1",
+            trade_type="buy_both_1",
             opportunity=self.opportunity,
             kalshi_order=self.dummy_kalshi_order,
             polymarket_order=self.dummy_poly_order
         )
         trade_result_2 = ArbTradeResultReceived(
-            category="buy_both_2",
+            trade_type="buy_both_2",
             opportunity=self.opportunity,
             kalshi_order=self.dummy_kalshi_order,
             polymarket_order=self.dummy_poly_order
@@ -200,7 +202,7 @@ class TestTradeStorage(unittest.IsolatedAsyncioTestCase):
         # initialize sample trades
 
         trade_result = ArbTradeResultReceived(
-            category="buy_both_1",
+            trade_type="buy_both_1",
             opportunity=self.opportunity,
             kalshi_order=self.dummy_kalshi_order,
             polymarket_order=self.dummy_poly_order
@@ -225,3 +227,24 @@ class TestTradeStorage(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(starting_entries + 2, final_length,
                          f"Database count should have increased by 1. Initial: {starting_entries}, Final: {final_length}")
+
+    def test_records_created_succesfully_with_valid_input(self):
+        # Adjust
+        valid_trade_result = [DELAYED_POLY_TRADE_RESULT]
+        # Act
+        result = TradeStorage._create_records(valid_trade_result)
+        # Assert
+        assert isinstance(result, list)
+        assert len(result) == 1
+        assert isinstance(result[0], ArbitrageOpportunityRecord)
+
+    def test_records_created_succesfully_with_valid_inputs(self):
+        # Adjust
+        valid_trade_result = [DELAYED_POLY_TRADE_RESULT, DELAYED_POLY_TRADE_RESULT]
+        # Act
+        results = TradeStorage._create_records(valid_trade_result)
+        # Assert
+        assert isinstance(results, list)
+        assert len(results) == 2
+        for result in results:
+            assert isinstance(result, ArbitrageOpportunityRecord)
