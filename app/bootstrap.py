@@ -6,6 +6,7 @@ from app.ingestion.clob_wss import PolymarketWebSocketClient
 from app.domain.events import OrderBookSnapshotReceived, OrderBookDeltaReceived, MarketBookUpdated, \
     ArbitrageOpportunityFound, ExecuteTrade, StoreTradeResults, TradeFailed, TradeAttemptCompleted
 from app.services.execution import executor
+from app.settings.settings import settings
 from app.ingestion.kalshi_wss_client import KalshiWebSocketClient
 from app.markets.manager import MarketManager
 from app.message_bus import MessageBus
@@ -14,6 +15,8 @@ from app.services.operational.balance_service import BalanceService
 from app.services.unwind import unwinder
 from app.strategies import arbitrage_monitor
 from app.services.trade_storage import TradeStorage
+from app.strategies.trade_size import get_trade_size
+from app.strategies.trade_size_dry import get_trade_size_dry
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +52,8 @@ def bootstrap(
         dry_run=dry_run,
         bus=bus,
         shutdown_event=shutdown_event,
-        balance_service=balance_service
+        balance_service=balance_service,
+        max_trade_size = get_trade_size_dry if settings.DRY_RUN else get_trade_size
     )
     unwinder.initialize_unwinder(
         trade_gateway=trade_repo,

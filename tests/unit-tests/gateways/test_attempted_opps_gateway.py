@@ -8,37 +8,19 @@ from app.clients.supabase import SupabaseClient
 from app.domain.primitives import Platform
 from app.gateways.attempted_opportunities_gateway import AttemptedOpportunitiesGateway
 from app.domain.models.opportunity import ArbitrageOpportunity, ArbitrageOpportunityRecord
+from tests.sample_data import DUMMY_ARB_OPPORTUNITY_BUY_BOTH, DUMMY_ARB_OPP_RECORD_ERROR_CASE
 
 
 class TestAttemptedOpportunityGateway(unittest.TestCase):
     def setUp(self):
         db_client = SupabaseClient()
         self.att_opp_gtwy = AttemptedOpportunitiesGateway(db_client.client)
+        self.att_opp_gtwy._table_name = "attempted_opportunities_test"
         # test data
-        self.dummy_opportunity = ArbitrageOpportunity(
-            market_id="test-market",
-            buy_yes_platform=Platform.KALSHI,
-            buy_yes_price=Decimal("0.27"),
-            buy_no_platform=Platform.POLYMARKET,
-            buy_no_price=Decimal("0.25"),
-            profit_margin=Decimal("0.50"),
-            potential_trade_size=Decimal("100.000"),
-            kalshi_ticker="KXFEDCHAIRNOM-29-KW",
-            polymarket_yes_token_id="yes-token-test",
-            polymarket_no_token_id="no-token-test",
-            kalshi_fees=None,
-        )
+        self.dummy_opportunity = DUMMY_ARB_OPPORTUNITY_BUY_BOTH
 
-        self.dummy_opp_record =  ArbitrageOpportunityRecord(
-            arbitrage_opportunity=self.dummy_opportunity,
-            category="test_category",
-            market_books_snapshot={"bids": [], "asks": []},
-            detected_at=datetime.now(timezone.utc),
-            poly_trade_executed=False,
-            poly_order_id="1234",
-            kalshi_trade_executed=False,
-            kalshi_order_id="5678"
-        )
+        self.dummy_opp_record = DUMMY_ARB_OPP_RECORD_ERROR_CASE
+
     def tearDown(self):
         pass
 
@@ -57,20 +39,20 @@ class TestAttemptedOpportunityGateway(unittest.TestCase):
 
     def test_basic_fetch_returns_proper_type(self):
         res = self.att_opp_gtwy.get_attempted_opportunities()
+        print("response is ", res)
         assert isinstance(res, list)
 
     def test_adding_one_attempted_opportunity_happy_path_returns_same_object(self):
+        # act
         result = self.att_opp_gtwy.add_attempted_opportunities_repository([self.dummy_opp_record])
+        raw_data = result.data[0]
+        # assert
         assert result is not None
         assert hasattr(result, "data")
         assert result.data is not None
         assert len(result.data) == 1
-
-        raw_data = result.data[0]
-
         try:
             arbitrage_opportunity = ArbitrageOpportunityRecord(**raw_data)
-            print("test resulti is", arbitrage_opportunity.arbitrage_opportunity)
             assert arbitrage_opportunity.arbitrage_opportunity== self.dummy_opp_record.arbitrage_opportunity
         except Exception as e:
             raise e

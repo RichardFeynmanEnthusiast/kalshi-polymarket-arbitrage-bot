@@ -80,10 +80,11 @@ class ArbitrageOpportunityFound(BaseEvent):
 
 class ArbTradeResultReceived(BaseEvent):
     """Event for when the execution service receives trade responses for a single arbitrage opportunity"""
-    category: str
+    trade_type: str
+    category: Optional[str] = None
     opportunity: ArbitrageOpportunity
     polymarket_order: Optional[PolymarketOrder] = None
-    polymarket_error: Optional[str] = None
+    polymarket_error_message: Optional[str] = None
     kalshi_order: Optional[KalshiOrder] = None
     kalshi_error_message: Optional[str] = None
 

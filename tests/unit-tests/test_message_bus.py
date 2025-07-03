@@ -1,3 +1,5 @@
+""" Integration tests for the message bus"""
+
 import unittest
 from decimal import Decimal
 import asyncio
@@ -20,6 +22,7 @@ class TestMessageBus(unittest.IsolatedAsyncioTestCase):
         self.db_client = SupabaseClient()
         self.trade_gateway = TradeGateway(kalshi_http=None, polymarket_http=None) # not needed
         self.attempted_opps_gtwy = AttemptedOpportunitiesGateway(self.db_client.client)
+        self.attempted_opps_gtwy._table_name = 'attempted_opportunities_test' # needed to set to test table
 
         # Mock shut down event
         self.shutdown_event = MagicMock(spec=asyncio.Event)
@@ -109,7 +112,7 @@ class TestMessageBus(unittest.IsolatedAsyncioTestCase):
             await executor.handle_trade_response(
                 kalshi_result=self.dummy_valid_kalshi_response,
                 polymarket_result=self.dummy_poly_order_response,
-                category="buy both",
+                trade_type="buy both",
                 opportunity=self.dummy_opportunity
             )
             # Allow some time for async operations to complete
@@ -185,7 +188,7 @@ class TestMessageBus(unittest.IsolatedAsyncioTestCase):
             await executor.handle_trade_response(
                 kalshi_result=self.dummy_valid_kalshi_response,
                 polymarket_result=self.dummy_poly_order_response,
-                category="buy both",
+                trade_type="buy both",
                 opportunity=self.dummy_opportunity
             )
             # Allow some time for async operations to complete
@@ -210,7 +213,7 @@ class TestMessageBus(unittest.IsolatedAsyncioTestCase):
             await executor.handle_trade_response(
                 kalshi_result=self.dummy_valid_kalshi_response,
                 polymarket_result=self.dummy_poly_order_response,
-                category="buy both",
+                trade_type="buy both",
                 opportunity=self.dummy_opportunity
             )
         await asyncio.sleep(2) # other tasks
@@ -219,7 +222,7 @@ class TestMessageBus(unittest.IsolatedAsyncioTestCase):
             await executor.handle_trade_response(
                 kalshi_result=self.dummy_valid_kalshi_response,
                 polymarket_result=self.dummy_poly_order_response,
-                category="buy both",
+                trade_type="buy both",
                 opportunity=self.dummy_opportunity
             )
 
