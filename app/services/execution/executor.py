@@ -236,10 +236,8 @@ async def handle_trade_response(kalshi_result, polymarket_result, trade_type : s
     if not is_kalshi_error and not is_polymarket_error:
         logger.info("Both trade legs succeeded. Publishing ArbitrageTradeSuccessful event.")
         await _bus.publish(ArbitrageTradeSuccessful())
-
-    # If the trade was not a total failure, signal completion to unlock the monitor.
-    if not (is_kalshi_error and is_polymarket_error):
         await _bus.publish(TradeAttemptCompleted())
+
 
 async def handle_balance_update(trade_size : Decimal):
     # Update balance, if not enough to cover the next trade, shut down the application
