@@ -1,5 +1,6 @@
 import unittest
 from decimal import Decimal
+from unittest.mock import patch
 
 from app.domain.primitives import Money
 from shared_wallets.domain.types import Currency
@@ -99,12 +100,14 @@ class TestTradeSizeCalculations(unittest.TestCase):
         # ASSERT
         self.assertEqual(calculate_minimum_wallet_budget(invalid_wallets, self.kalshi_fees), 0)
 
-    def test_get_trade_size_min_of_all_factors_with_smaller_trade_size(self):
+    @patch("app.strategies.trade_size.settings")
+    def test_get_trade_size_min_of_all_factors_with_smaller_trade_size(self, mock_settings):
         """
         Test that get_trade_size returns the minimum of all factors when the trade opportunity size is smaller.
         Verifies the function's behavior when the trade opportunity size is less than the minimum wallet balance.
         """
         # SETUP
+        mock_settings.SHUTDOWN_BALANCE = Decimal("20")
         trade_opportunity_size = Decimal('49.50')  # sqrt(49) = 7
 
         # Wallet min = min(95-1, 50) = 50
