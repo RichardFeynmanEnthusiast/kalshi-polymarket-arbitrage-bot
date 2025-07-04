@@ -133,12 +133,14 @@ def estimate_gas_for_pol_transfer(amount_to_send, recipient_addr):
 
     return  web3.eth.estimate_gas(tx)
 
-def send_usdc_to_uniswap_wallet(recipient_address: Address | ChecksumAddress | str, gas_estimate: int, amount_to_send):
+def send_usdc_to_uniswap_wallet(recipient_address: Address | ChecksumAddress | str, amount_to_send):
 
     PRIVATE_KEY = os.getenv("POLYMARKET_WALLET_PRIVATE_KEY")
 
     RECIPIENT_ADDRESS = Web3.to_checksum_address(recipient_address) # uniswap addr
     AMOUNT_TO_SEND = amount_to_send  # in USDC
+    gas_estimate = estimate_gas(amount_to_send, RECIPIENT_ADDRESS)
+    print(f"Gas estimate: {gas_estimate}", AMOUNT_TO_SEND)
 
     # ERC-20 ABI with just the 'transfer' function
     ERC20_ABI = [
@@ -196,8 +198,8 @@ def send_usdc_to_uniswap_wallet(recipient_address: Address | ChecksumAddress | s
 
     return tx_hash.hex()
 
-def send_pol_to_uniswap_wallet(recipient_address: Address | ChecksumAddress | str, gas_estimate: int, amount_to_send: int):
-    """Send native POL (formerly MATIC) to a given address on Polygon."""
+def send_pol_to_uniswap_wallet(recipient_address: Address | ChecksumAddress | str):
+    """Send native POL (formerly MATIC) to a given address on Polygon. Sends 1 POl"""
 
     PRIVATE_KEY = os.getenv("POLYMARKET_WALLET_PRIVATE_KEY")
     SENDER_ADDRESS = Web3.to_checksum_address(os.getenv("POLYMARKET_WALLET_ADDR"))
