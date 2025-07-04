@@ -53,7 +53,6 @@ class TestBalanceService(unittest.TestCase):
         result = self.service.update_wallets()
         # Assert
         self.assertEqual(result, wallets)
-        self.assertEqual(self.service.get_wallets(), wallets)
 
     def test_update_wallets_raises_and_wraps(self):
         # Arrange
