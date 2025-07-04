@@ -89,7 +89,7 @@ class DoubleTimeHFTApp:
 async def main(enable_diagnostic_printer: bool):
 
     markets_to_trade = [
-        ("550037", "KXNEWPARTYMUSK-26")
+        ("552975", "KXNATHANDOGS-25-70")
     ]
 
     # low-level dependencies
@@ -152,6 +152,3 @@ if __name__ == "__main__":
         asyncio.run(main(enable_diagnostic_printer=False))
     except (KeyboardInterrupt, SystemExit):
         logger.info("Application shutting down...")
-    markets_to_trade = [
-        ("550037", "KXNEWPARTYMUSK-26")
-    ]
