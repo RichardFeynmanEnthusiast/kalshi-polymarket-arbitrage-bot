@@ -62,6 +62,7 @@ class DoubleTimeHFTApp:
             poly_usdc_balance = self.balance_service.polymarket_wallet.get_balance(Currency.USDC_E).amount
             poly_pol_balance = self.balance_service.polymarket_wallet.get_balance(Currency.POL).amount
             kalshi_balance = self.balance_service.kalshi_wallet.get_balance(Currency.USD).amount
+            self.balance_service.set_maximum_spend() # based on settings vars
             if not self.balance_service.has_enough_balance:
                 raise Exception(
                     f"Balance too low to execute trades. Poly balance {poly_usdc_balance}. Kalshi balance {kalshi_balance}")
@@ -70,6 +71,9 @@ class DoubleTimeHFTApp:
                     f"Polymarket USDC.e balance: {poly_usdc_balance:.2f}, "
                     f"matic balance: {poly_pol_balance:.2f}")
                 logger.info(f"Kalshi balance: ${kalshi_balance:.2f}")
+        except ValueError as e:
+            self.logger.error(e)
+            raise
         except Exception as e:
             raise f"Failed to generate new wallets. Service stopping: {e}"
 
@@ -152,6 +156,3 @@ if __name__ == "__main__":
         asyncio.run(main(enable_diagnostic_printer=False))
     except (KeyboardInterrupt, SystemExit):
         logger.info("Application shutting down...")
-    markets_to_trade = [
-        ("550037", "KXNEWPARTYMUSK-26")
-    ]

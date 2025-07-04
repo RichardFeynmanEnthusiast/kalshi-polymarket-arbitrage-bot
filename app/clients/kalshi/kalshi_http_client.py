@@ -277,12 +277,13 @@ class KalshiHttpClient(KalshiBaseClient):
         Returns:
             Response JSON as a dictionary.
         """
-        # Validate price parameters
-        if (yes_price is None) == (no_price is None):
-            raise ValueError("Exactly one of yes_price or no_price must be provided")
+        # Validate price parameters for limit orders
+        if type == "limit" and (yes_price is None) == (no_price is None):
+            raise ValueError("Exactly one of yes_price or no_price must be provided for limit orders.")
+
         # Market buy requires buy_max_cost
         if type == "market" and action == "buy" and buy_max_cost is None:
-            raise ValueError("buy_max_cost is required for market buy orders")
+            raise ValueError("buy_max_cost is required for market buy orders.")
 
         body: Dict[str, Any] = {
             "action": action,

@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 from py_clob_client.clob_types import OrderType
 from pydantic import ValidationError
@@ -71,14 +71,23 @@ class TradeGateway:
             side: KalshiSide,
             count: int,
             client_order_id: str,
-            action: str = "sell"
+            action: str,
+            buy_max_cost: Optional[int] = None
     ) -> KalshiOrder:
         """
         Places a true market order on Kalshi.
         """
+        if action == "buy" and buy_max_cost is None:
+            raise ValueError("buy_max_cost is required for a market buy order.")
+
         resp = await self.kalshi.create_order(
-            action=action, side=side.value, type="market",
-            ticker=ticker, count=count, client_order_id=client_order_id
+            action=action,
+            side=side.value,
+            type="market",
+            ticker=ticker,
+            count=count,
+            client_order_id=client_order_id,
+            buy_max_cost=buy_max_cost
         )
         return self.process_raw_kalshi_order(resp, trade_size=Decimal(count))
 
