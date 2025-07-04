@@ -58,7 +58,7 @@ async def handle_execute_trade(command: ExecuteTrade):
     wallets = _balance_service.get_wallets()
     log_prefix = "[DRY RUN] " if _dry_run else ""
     if _dry_run:
-        trade_size = _max_trade_size(opportunity)
+        trade_size = _max_trade_size(opportunity.potential_trade_size)
     else:
         trade_size = _max_trade_size(wallets=wallets,trade_opportunity_size=opportunity.potential_trade_size, kalshi_fees =
                                  opportunity.kalshi_fees)
@@ -225,10 +225,8 @@ async def handle_trade_response(kalshi_result, polymarket_result, trade_type : s
     if not is_kalshi_error and not is_polymarket_error:
         logger.info("Both trade legs succeeded. Publishing ArbitrageTradeSuccessful event.")
         await _bus.publish(ArbitrageTradeSuccessful())
-
-    # If the trade was not a total failure, signal completion to unlock the monitor.
-    if not (is_kalshi_error and is_polymarket_error):
         await _bus.publish(TradeAttemptCompleted())
+
 
 async def handle_balance_update():
     # Update balance, if not enough to cover the next trade, shut down the application
