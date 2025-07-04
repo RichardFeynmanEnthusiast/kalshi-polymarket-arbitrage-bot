@@ -123,3 +123,70 @@ class TestBalanceService(unittest.TestCase):
         self.service.set_wallets(Wallets(kalshi_wallet=kalshi, polymarket_wallet=polymarket))
         # Assert
         self.assertTrue(self.service.has_enough_balance)
+
+    @patch("app.services.operational.balance_service.settings")
+    def test_maximum_spend_not_reached(self, mock_settings):
+        # Adjust
+        mock_settings.MINIMUM_WALLET_BALANCE = Decimal("100")
+        mock_settings.SHUTDOWN_BALANCE = Decimal("20")
+        service = BalanceService(balance_data_gateway=self.mock_gateway, minimum_balance=self.minimum_balance)
+        service.set_maximum_spend()
+        self.assertFalse(service.maximum_spend_reached)
+
+    @patch("app.services.operational.balance_service.settings")
+    def test_maximum_spend_not_reached_with_adjusted_spend(self, mock_settings):
+        # Adjust
+        mock_settings.MINIMUM_WALLET_BALANCE = Decimal("100")
+        mock_settings.SHUTDOWN_BALANCE = Decimal("20")
+        service = BalanceService(balance_data_gateway=self.mock_gateway, minimum_balance=self.minimum_balance)
+        service.set_maximum_spend()
+        service._total_spent = Decimal("50")
+        self.assertFalse(service.maximum_spend_reached)
+
+    @patch("app.services.operational.balance_service.settings")
+    def test_maximum_spend_reached_with_adjusted_spend(self, mock_settings):
+        # Adjust
+        mock_settings.MINIMUM_WALLET_BALANCE = Decimal("50")
+        mock_settings.SHUTDOWN_BALANCE = Decimal("20")
+        service = BalanceService(balance_data_gateway=self.mock_gateway, minimum_balance=self.minimum_balance)
+        service.set_maximum_spend()
+        # Act
+        service._total_spent = Decimal("50")
+        self.assertTrue(service.maximum_spend_reached)
+
+    @patch("app.services.operational.balance_service.settings")
+    def test_maximum_spend_cannot_start_with_negative_values(self, mock_settings):
+        # Adjust
+        mock_settings.MINIMUM_WALLET_BALANCE = Decimal("20")
+        mock_settings.SHUTDOWN_BALANCE = Decimal("30")
+        service = BalanceService(balance_data_gateway=self.mock_gateway, minimum_balance=self.minimum_balance)
+        # Assert
+        with self.assertRaises(ValueError) as ctx:
+            service.set_maximum_spend()
+
+        self.assertIn("Invalid maximum spend", str(ctx.exception))
+
+    @patch("app.services.operational.balance_service.settings")
+    def test_update_total_spend_increments_total_spend(self, mock_settings):
+        # Adjust
+        mock_settings.MINIMUM_WALLET_BALANCE = Decimal("100")
+        mock_settings.SHUTDOWN_BALANCE = Decimal("20")
+        service = BalanceService(balance_data_gateway=self.mock_gateway, minimum_balance=self.minimum_balance)
+        service.set_maximum_spend() # 80
+        # Act
+        service.update_total_spend(trade_placed_size=Decimal("50"))
+        # Assert
+        self.assertEqual(service._total_spent, Decimal("50"))
+
+    @patch("app.services.operational.balance_service.settings")
+    def test_update_total_spend_changes_sets_max_spend_reached(self, mock_settings):
+        # Adjust
+        mock_settings.MINIMUM_WALLET_BALANCE = Decimal("100")
+        mock_settings.SHUTDOWN_BALANCE = Decimal("20")
+        service = BalanceService(balance_data_gateway=self.mock_gateway, minimum_balance=self.minimum_balance)
+        service.set_maximum_spend()  # 80
+        # Act
+        service.update_total_spend(trade_placed_size=Decimal("50"))
+        service.update_total_spend(trade_placed_size=Decimal("50"))
+        # Assert
+        self.assertTrue(service.maximum_spend_reached)
