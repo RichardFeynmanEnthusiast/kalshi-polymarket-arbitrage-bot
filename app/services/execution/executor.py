@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import uuid
+from decimal import Decimal, ROUND_CEILING
 from typing import Callable
 
 from app.domain.events import ExecuteTrade, ArbTradeResultReceived, StoreTradeResults, TradeFailed, \
@@ -54,6 +55,9 @@ async def handle_execute_trade(command: ExecuteTrade):
     This is the command handler for executing a trade. It contains the logic
     from the old execute_buy_both_arbitrage method.
     """
+    if _shutdown_event.is_set():
+        logger.warning("Tried to execute trade executor on shutdown.")
+        return
     opportunity = command.opportunity
     wallets = _balance_service.get_wallets()
     log_prefix = "[DRY RUN] " if _dry_run else ""
@@ -219,7 +223,14 @@ async def handle_trade_response(kalshi_result, polymarket_result, trade_type : s
         )
         await publish_trade_failed(event)
 
-    await handle_balance_update()
+    if not is_kalshi_error:
+        trade_size = Decimal(getattr(kalshi_result, "trade_size", 0))
+    elif not is_polymarket_error:
+        trade_size = Decimal(getattr(polymarket_result, "takingAmount", 0))
+    else:
+        trade_size = Decimal("0")
+    # round up to be conservative
+    await handle_balance_update(trade_size=trade_size.to_integral_value(rounding=ROUND_CEILING))
 
     # If both legs succeeded, publish the event to trigger the application reset
     if not is_kalshi_error and not is_polymarket_error:
@@ -228,15 +239,17 @@ async def handle_trade_response(kalshi_result, polymarket_result, trade_type : s
         await _bus.publish(TradeAttemptCompleted())
 
 
-async def handle_balance_update():
+async def handle_balance_update(trade_size : Decimal):
     # Update balance, if not enough to cover the next trade, shut down the application
     try:
         _balance_service.update_wallets()
-        if not _balance_service.has_enough_balance:
+        _balance_service.update_total_spend(trade_size)
+        if _balance_service.maximum_spend_reached or not _balance_service.has_enough_balance:
+            logger.warning("Not enough balance available. Triggering application shutdown.")
             _shutdown_event.set()
     except Exception as e:
         # if app fails to get new balance shutdown the application
-        logger.critical("Failed to update wallets, shutting down: {e}".format(e=e))
+        logger.critical("Failed to update wallets, shutting down: {}".format(e))
         _shutdown_event.set()
 
 async def publish_trade_failed(event: TradeFailed):
