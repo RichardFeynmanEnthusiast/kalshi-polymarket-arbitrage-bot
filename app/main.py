@@ -93,7 +93,8 @@ class DoubleTimeHFTApp:
 async def main(enable_diagnostic_printer: bool):
 
     markets_to_trade = [
-        ("550037", "KXNEWPARTYMUSK-26")
+        ("551659", "KXWWOMENSINGLES-25-IS"),
+        ("551681", "KXWWOMENSINGLES-25-ANA")
     ]
 
     # low-level dependencies
