@@ -117,13 +117,6 @@ class Orderbook:
             "asks": top_asks
         }
 
-    def clear(self) -> None:
-        """
-        Atomically clears all bids and asks from the order book.
-        """
-        self.bids.clear()
-        self.asks.clear()
-        self.last_update = datetime.now(timezone.utc)
 
 
 class BinaryOrderBook(BaseModel):
