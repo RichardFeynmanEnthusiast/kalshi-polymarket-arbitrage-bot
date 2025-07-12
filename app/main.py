@@ -2,7 +2,7 @@ import asyncio
 import logging.config
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import List, Tuple, Optional
+from typing import List, Tuple
 
 from shared_wallets.domain.models import Currency
 
@@ -28,16 +28,19 @@ from app.utils.polymarket_client_factory import PolymarketClientFactory
 logging.config.dictConfig(LOGGING_CONFIG)
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class AppDependencies:
     # operational services
-    balance_service : BalanceService
+    balance_service: BalanceService
     # core
-    fletcher : FletcherOrchestrator
+    fletcher: FletcherOrchestrator
+
 
 class DoubleTimeHFTApp:
     """ Start up the entire HFT application"""
-    def __init__(self, markets_to_trade: List[Tuple], shutdown_balance: Decimal, dependencies : AppDependencies,
+
+    def __init__(self, markets_to_trade: List[Tuple], shutdown_balance: Decimal, dependencies: AppDependencies,
                  ):
         self.markets_to_trade = markets_to_trade
         self.shutdown_balance = shutdown_balance
@@ -53,8 +56,9 @@ class DoubleTimeHFTApp:
         Starts the main application orchestrator for a specific set of markets.
         """
         logger.info("Starting Fletcher Orchestrator...")
-        await self.fletcher_orchestrator.run_live_trading_service(market_tuples=self.markets_to_trade, dry_run=settings.DRY_RUN,
-                                                    cool_down_seconds=5)
+        await self.fletcher_orchestrator.run_live_trading_service(market_tuples=self.markets_to_trade,
+                                                                  dry_run=settings.DRY_RUN,
+                                                                  cool_down_seconds=5)
 
     def check_balance(self):
         try:
@@ -62,7 +66,7 @@ class DoubleTimeHFTApp:
             poly_usdc_balance = self.balance_service.polymarket_wallet.get_balance(Currency.USDC_E).amount
             poly_pol_balance = self.balance_service.polymarket_wallet.get_balance(Currency.POL).amount
             kalshi_balance = self.balance_service.kalshi_wallet.get_balance(Currency.USD).amount
-            self.balance_service.set_maximum_spend() # based on settings vars
+            self.balance_service.set_maximum_spend()  # based on settings vars
             if not self.balance_service.has_enough_balance:
                 raise Exception(
                     f"Balance too low to execute trades. Poly balance {poly_usdc_balance}. Kalshi balance {kalshi_balance}")
@@ -90,10 +94,9 @@ class DoubleTimeHFTApp:
         except (KeyboardInterrupt, SystemExit):
             logger.info("Application shutting down...")
 
-async def main(enable_diagnostic_printer: bool):
 
+async def main(enable_diagnostic_printer: bool):
     markets_to_trade = [
-        ("551659", "KXWWOMENSINGLES-25-IS"),
         ("551681", "KXWWOMENSINGLES-25-ANA")
     ]
 
@@ -112,7 +115,7 @@ async def main(enable_diagnostic_printer: bool):
     trade_repo = TradeGateway(kalshi_http, clob_client)
 
     # Services
-    bus : MessageBus = MessageBus()
+    bus: MessageBus = MessageBus()
     market_manager = MarketManager(bus)
     automatic_flush_minutes = 30
     trade_storage = TradeStorage(bus=bus, trade_repo=trade_repo, attempted_opportunities_repo=attempted_opps_repo,
@@ -124,7 +127,6 @@ async def main(enable_diagnostic_printer: bool):
     if enable_diagnostic_printer:
         printer = DiagnosticPrinter(market_state_querier=market_manager, interval_seconds=10)
     logger.info("Diagnostic printer is %s.", "ENABLED" if printer else "DISABLED")
-
 
     orchestrator = FletcherOrchestrator(
         poly_wss_client=clob_wss_client,
@@ -142,14 +144,13 @@ async def main(enable_diagnostic_printer: bool):
     )
 
     app_dependencies = AppDependencies(
-        balance_service = balance_service,
-        fletcher = orchestrator
+        balance_service=balance_service,
+        fletcher=orchestrator
     )
 
     double_time = DoubleTimeHFTApp(markets_to_trade=markets_to_trade, shutdown_balance=settings.SHUTDOWN_BALANCE,
                                    dependencies=app_dependencies)
     await double_time.start()
-
 
 
 if __name__ == "__main__":
