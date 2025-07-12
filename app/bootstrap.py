@@ -15,7 +15,7 @@ from app.services.operational.balance_service import BalanceService
 from app.services.unwind import unwinder
 from app.strategies import arbitrage_monitor
 from app.services.trade_storage import TradeStorage
-from app.strategies.trade_size import get_trade_size
+from app.strategies.trade_prct_size import get_trade_size
 from app.strategies.trade_size_dry import get_trade_size_dry
 
 logger = logging.getLogger(__name__)
