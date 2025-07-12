@@ -12,7 +12,7 @@ from app.domain.types import TradeDetails
 from app.gateways.trade_gateway import TradeGateway
 from app.message_bus import MessageBus
 from app.services.operational.balance_service import BalanceService
-from app.strategies.trade_size import get_trade_size
+from app.strategies.trade_prct_size import get_trade_size
 
 # --- Module Setup ---
 

@@ -5,7 +5,7 @@ from unittest.mock import patch
 from app.domain.primitives import Money
 from shared_wallets.domain.types import Currency
 from app.domain.types import Wallets
-from app.strategies.trade_size import get_trade_size, calculate_minimum_wallet_budget, calculate_trade_size
+from app.strategies.trade_sqrt_size import get_trade_size, calculate_minimum_wallet_budget, calculate_trade_size
 from shared_wallets.domain.models import ExchangeWallet, Exchange
 from tests.sample_data import VALID_WALLETS_LARGER_KALSHI, VALID_WALLETS_LARGER_POLY, VALID_WALLETS_EQUAL
 
@@ -100,7 +100,7 @@ class TestTradeSizeCalculations(unittest.TestCase):
         # ASSERT
         self.assertEqual(calculate_minimum_wallet_budget(invalid_wallets, self.kalshi_fees), 0)
 
-    @patch("app.strategies.trade_size.settings")
+    @patch("app.strategies.trade_sqrt_size.settings")
     def test_get_trade_size_min_of_all_factors_with_smaller_trade_size(self, mock_settings):
         """
         Test that get_trade_size returns the minimum of all factors when the trade opportunity size is smaller.
