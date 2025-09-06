@@ -1,4 +1,5 @@
 import os
+
 from dotenv import load_dotenv
 
 from app.utils.infra import polygon_net

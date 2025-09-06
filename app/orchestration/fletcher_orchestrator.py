@@ -4,17 +4,17 @@ from typing import Dict, List, Coroutine, Optional
 
 from app.bootstrap import bootstrap
 from app.domain.events import ArbitrageTradeSuccessful
-from app.ingestion.clob_wss import PolymarketWebSocketClient
 from app.domain.models.match_models import MarketPair, MatchedMarketBase
 from app.domain.models.platform_models import PolymarketMarket, KalshiMarket
+from app.gateways.attempted_opportunities_gateway import AttemptedOpportunitiesGateway
 from app.gateways.kalshi_gateway import KalshiGateway
 from app.gateways.polymarket_gateway import PolymarketGateway
+from app.gateways.trade_gateway import TradeGateway
+from app.ingestion.clob_wss import PolymarketWebSocketClient
 from app.ingestion.kalshi_wss_client import KalshiWebSocketClient
 from app.markets.manager import MarketManager
 from app.message_bus import MessageBus
 from app.repositories.matches_repository import MatchesRepository
-from app.gateways.attempted_opportunities_gateway import AttemptedOpportunitiesGateway
-from app.gateways.trade_gateway import TradeGateway
 from app.services.operational.balance_service import BalanceService
 from app.services.operational.diagnostic_printer import DiagnosticPrinter
 from app.services.trade_storage import TradeStorage

@@ -3,9 +3,9 @@ from typing import Tuple
 from cryptography.hazmat.primitives import serialization
 
 from app.clients.kalshi import KalshiHttpClient
+from app.ingestion.kalshi_wss_client import KalshiWebSocketClient
 from app.settings.env import Environment
 from app.settings.settings import settings, BASE_DIR_1
-from app.ingestion.kalshi_wss_client import KalshiWebSocketClient
 
 
 class KalshiClientFactory:

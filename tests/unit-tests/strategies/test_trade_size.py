@@ -2,11 +2,12 @@ import unittest
 from decimal import Decimal
 from unittest.mock import patch
 
-from app.domain.primitives import Money
+from shared_wallets.domain.models import ExchangeWallet, Exchange
 from shared_wallets.domain.types import Currency
+
+from app.domain.primitives import Money
 from app.domain.types import Wallets
 from app.strategies.trade_sqrt_size import get_trade_size, calculate_minimum_wallet_budget, calculate_trade_size
-from shared_wallets.domain.models import ExchangeWallet, Exchange
 from tests.sample_data import VALID_WALLETS_LARGER_KALSHI, VALID_WALLETS_LARGER_POLY, VALID_WALLETS_EQUAL
 
 

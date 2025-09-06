@@ -1,8 +1,11 @@
-from app.utils.infra import polygon_net
 import argparse
-from decimal import Decimal
 import os
+from decimal import Decimal
+
 from dotenv import load_dotenv
+
+from app.utils.infra import polygon_net
+
 
 def main():
     parser = argparse.ArgumentParser(description="Send POL or USDC to Uniswap wallet on Polygon.")

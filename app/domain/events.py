@@ -1,13 +1,13 @@
 import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Literal, List, Optional, Dict, Any
+from typing import Literal, List, Optional
 
 from pydantic import BaseModel, Field
 
 from app.domain.models.opportunity import ArbitrageOpportunity
 from app.domain.primitives import Platform, SIDES
-from app.domain.types import KalshiOrder, PolymarketOrder, TradeDetails, Wallets
+from app.domain.types import KalshiOrder, PolymarketOrder, TradeDetails
 
 
 # --- Base Message Types ---

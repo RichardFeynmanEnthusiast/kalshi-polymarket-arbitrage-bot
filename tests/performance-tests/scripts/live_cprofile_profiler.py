@@ -1,11 +1,13 @@
 """ Script for profiling the double time service with live runs using cProfile """
+import argparse
 import asyncio
 import cProfile
-import pstats
-from app.main import main as app_entry
-import argparse
 import os
+import pstats
+
 from dotenv import load_dotenv
+
+from app.main import main as app_entry
 
 load_dotenv("tests/.env.profiler")
 

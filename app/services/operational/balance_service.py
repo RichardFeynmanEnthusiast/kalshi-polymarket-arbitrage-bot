@@ -1,11 +1,12 @@
 import logging
-from decimal import Decimal, ROUND_FLOOR
+from decimal import Decimal
 
-from app.gateways.balance_data_gateway import BalanceDataGateway
+from shared_wallets.domain.models import ExchangeWallet, Exchange
+from shared_wallets.domain.types import Currency, Money
+
 from app.domain.events import StoreTradeResults
 from app.domain.types import Wallets
-from shared_wallets.domain.types import Currency, Money
-from shared_wallets.domain.models import ExchangeWallet, Exchange
+from app.gateways.balance_data_gateway import BalanceDataGateway
 from app.settings.settings import settings
 
 logger = logging.getLogger(__name__)
