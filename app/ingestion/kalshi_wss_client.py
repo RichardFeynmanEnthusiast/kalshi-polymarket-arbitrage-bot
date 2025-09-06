@@ -25,6 +25,7 @@ class KalshiWebSocketClient(KalshiBaseClient):
     for Kalshi's delta messages, fulfilling its role as an adapter.
     """
     WS_URL_SUFFIX = "/trade-api/ws/v2"
+    SHARED_SEQ_KEY = "shared_subscription_sequence"
 
     def __init__(
             self,
@@ -62,7 +63,7 @@ class KalshiWebSocketClient(KalshiBaseClient):
     def set_market_config(self, markets_config: List[Dict[str, str]]) -> None:
         self.market_map = {m['kalshi_ticker']: m['id'] for m in markets_config if 'kalshi_ticker' in m}
         self.market_tickers = list(self.market_map.keys())
-        self._last_seq = {ticker: 0 for ticker in self.market_tickers}
+        self._last_seq = {self.SHARED_SEQ_KEY: 0}
         self._books_state = {ticker: {"yes": {}, "no": {}} for ticker in self.market_tickers}
 
     def set_message_bus(self, bus: MessageBus):
@@ -87,11 +88,14 @@ class KalshiWebSocketClient(KalshiBaseClient):
                     await self._on_open()
                     await self._listen()
             except (websockets.exceptions.ConnectionClosed, ConnectionRefusedError) as e:
-                self.logger.warning("[Kalshi] Connection closed: %s. Reconnecting in %ss...", e, self._reconnect_delay_seconds)
+                self.logger.warning("[Kalshi] Connection closed: %s. Reconnecting in %ss...", e,
+                                    self._reconnect_delay_seconds)
             except RuntimeError as e:
-                self.logger.error(f"[Kalshi] Initialization error: {e}. The orchestrator may not have configured the client correctly. Retrying...")
+                self.logger.error(
+                    f"[Kalshi] Initialization error: {e}. The orchestrator may not have configured the client correctly. Retrying...")
             except Exception as exc:
-                self.logger.error("[Kalshi] An unexpected error occurred: %s. Reconnecting in %ss...", exc, self._reconnect_delay_seconds)
+                self.logger.error("[Kalshi] An unexpected error occurred: %s. Reconnecting in %ss...", exc,
+                                  self._reconnect_delay_seconds)
             finally:
                 self._ws = None
                 await asyncio.sleep(self._reconnect_delay_seconds)
@@ -111,10 +115,13 @@ class KalshiWebSocketClient(KalshiBaseClient):
     async def _subscribe_orderbooks(self, tickers: List[str]) -> None:
         """Sends the subscription message to the Kalshi WebSocket server."""
         if not self._ws: return
-        for ticker in tickers:
-            self._last_seq[ticker] = 0
-            self._books_state[ticker] = {"yes": {}, "no": {}} # Clear book state on new subscription
-        msg = {"id": self._msg_id, "cmd": "subscribe", "params": {"channels": ["orderbook_delta"], "market_tickers": tickers}}
+
+        self.logger.info("[Kalshi] Resetting internal state for new subscription.")
+        self._last_seq = {self.SHARED_SEQ_KEY: 0}
+        self._books_state = {ticker: {"yes": {}, "no": {}} for ticker in self.market_tickers}
+
+        msg = {"id": self._msg_id, "cmd": "subscribe",
+               "params": {"channels": ["orderbook_delta"], "market_tickers": tickers}}
         await self._ws.send(json.dumps(msg))
         self.logger.info("[Kalshi] Sent subscription request for tickers: %s", tickers)
         self._msg_id += 1
@@ -126,7 +133,7 @@ class KalshiWebSocketClient(KalshiBaseClient):
         self.logger.info("[Kalshi] Beginning listening process")
         async for raw_message in self._ws:
             self.logger.debug("[Kalshi] Received raw message", extra={'raw_message': raw_message})
-            market_ticker = None # Initialize to handle cases where parsing fails early
+            market_ticker = None  # Initialize to handle cases where parsing fails early
             try:
                 data = json.loads(raw_message)
                 msg_type = data.get("type")
@@ -138,7 +145,7 @@ class KalshiWebSocketClient(KalshiBaseClient):
                     continue
 
                 # --- Sequence Number Validation ---
-                if not await self._is_sequence_valid(market_ticker, msg_type, data.get("seq")):
+                if not await self._is_sequence_valid(data.get("seq")):
                     await self._request_resubscribe(market_ticker)
                     continue
 
@@ -152,8 +159,10 @@ class KalshiWebSocketClient(KalshiBaseClient):
                     for price, size in msg.yes: self._books_state[market_ticker]['yes'][price] = size
                     for price, size in msg.no: self._books_state[market_ticker]['no'][price] = size
 
-                    bids = [PriceLevelData(price=Decimal(str(p))/100, size=Decimal(str(s))) for p, s in msg.yes]
-                    asks = [PriceLevelData(price=Decimal("1") - (Decimal(str(p))/Decimal("100")), size=Decimal(str(s))) for p, s in msg.no]
+                    bids = [PriceLevelData(price=Decimal(str(p)) / 100, size=Decimal(str(s))) for p, s in msg.yes]
+                    asks = [
+                        PriceLevelData(price=Decimal("1") - (Decimal(str(p)) / Decimal("100")), size=Decimal(str(s)))
+                        for p, s in msg.no]
                     event = OrderBookSnapshotReceived(
                         platform=Platform.KALSHI, market_id=common_market_id, outcome="YES", bids=bids, asks=asks
                     )
@@ -205,42 +214,38 @@ class KalshiWebSocketClient(KalshiBaseClient):
                 self.logger.exception("[Kalshi] Failed to process message", extra={"raw_message": raw_message})
 
     @require_initialized
-    async def _is_sequence_valid(self, ticker: str, msg_type: str, seq: Optional[int]) -> bool:
+    async def _is_sequence_valid(self, seq: Optional[int]) -> bool:
         """
-        Checks if the message's sequence number is valid with strict initial validation.
-        The first message for a market must be a snapshot with seq=1.
+        Checks if the message's sequence number is valid for the entire subscription.
         """
         if seq is None:
-            self.logger.warning("[Kalshi] Message for %s has no sequence number.", ticker)
+            self.logger.warning("[Kalshi] Message has no sequence number.")
             return False
+
         async with self._lock:
-            last_seq = self._last_seq.get(ticker, 0)
+            last_seq = self._last_seq.get(self.SHARED_SEQ_KEY, 0)
 
-            # A snapshot resets the sequence. It should be 1.
-            if msg_type == "orderbook_snapshot":
-                if seq < 1:
-                    self.logger.error(f"[Kalshi] Snapshot for {ticker} has invalid seq {seq}. Ignoring.")
-                    return False
-                self._last_seq[ticker] = seq
-                return True
-            if last_seq == 0:
-                self.logger.error(f"[Kalshi] Delta for {ticker} received before snapshot. Invalid sequence.")
-                return False
-
-            # A delta should be exactly one greater than the last sequence number.
+            # The first message must have seq=1. After that, it must be strictly sequential.
             expected_seq = last_seq + 1
-            if seq != expected_seq:
-                self.logger.error(f"[Kalshi] Sequence gap for {ticker}: got {seq}, expected {expected_seq}.")
-                return False
-            self._last_seq[ticker] = seq
-            return True
+            if seq == expected_seq:
+                self._last_seq[self.SHARED_SEQ_KEY] = seq
+                return True
+
+            # Allow the very first message to be a snapshot that sets the baseline.
+            # This handles the initial connection where seq starts at 1.
+            if last_seq == 0 and seq == 1:
+                self._last_seq[self.SHARED_SEQ_KEY] = seq
+                return True
+
+            self.logger.error(f"[Kalshi] Sequence gap for subscription: got {seq}, expected {expected_seq}.")
+            return False
 
     async def _request_resubscribe(self, ticker: str) -> None:
         """Handles a sequence gap by clearing the book and restarting the connection."""
-        self.logger.warning(f"[Kalshi] Requesting resubscription for {ticker} due to sequence gap.")
+        self.logger.warning(f"[Kalshi] Requesting resubscription for ALL markets due to sequence gap on {ticker}.")
         # Closing the connection will trigger the reconnection logic in connect_forever()
         if self._ws:
             try:
-                await self._ws.close(code=4000, reason=f"seq-gap:{ticker}")
+                await self._ws.close(code=4000, reason=f"subscription-seq-gap")
             except Exception as e:
                 self.logger.error(f"[Kalshi] Error closing websocket: {e}")
