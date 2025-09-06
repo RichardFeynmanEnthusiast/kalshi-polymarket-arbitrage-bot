@@ -1,24 +1,15 @@
 import itertools
 from datetime import datetime, timezone
 from decimal import getcontext, Decimal
-from typing import Dict, List, Any, ClassVar
+from typing import Dict, List
 
-from py_clob_client.clob_types import OrderBookSummary
-from pydantic import BaseModel, Field
 from sortedcontainers import SortedDict
 from typing_extensions import Optional, Tuple
 
-from app.domain.primitives import Money, SIDES
+from app.domain.events import PriceLevelData
+from app.domain.primitives import SIDES
 
 getcontext().prec = 10
-
-
-class PriceLevel(BaseModel):
-    """
-    Representation of a single price level.
-    """
-    price: Money = Field(..., description="Price at this level")
-    size: Money = Field(..., description="Quantity available for this level")
 
 
 class Orderbook:
@@ -54,7 +45,7 @@ class Orderbook:
             book_side[price] = size
         self.last_update = datetime.now(timezone.utc)
 
-    def apply_updates(self, side: str, updates: List[Tuple[Decimal, Decimal]]) -> None:
+    def apply_updates(self, side: str, updates: List[PriceLevelData]) -> None:
         """
         Applies multiple normalized updates (price, size) to the book side.
         """
