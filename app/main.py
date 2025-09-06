@@ -39,7 +39,6 @@ class AppDependencies:
 
 class DoubleTimeHFTApp:
     """ Start up the entire HFT application"""
-
     def __init__(self, markets_to_trade: List[Tuple], shutdown_balance: Decimal, dependencies: AppDependencies,
                  ):
         self.markets_to_trade = markets_to_trade
