@@ -11,10 +11,10 @@ from websockets.legacy.client import WebSocketClientProtocol
 
 from app.clients.kalshi.base import KalshiBaseClient
 from app.domain.events import OrderBookDeltaReceived, PriceLevelData, OrderBookSnapshotReceived
-from app.domain.primitives import SIDES, Platform
 from app.domain.models.venue_data_schemas import KalshiSnapshotMessage, KalshiDeltaMessage
-from app.settings.env import Environment
+from app.domain.primitives import SIDES, Platform
 from app.message_bus import MessageBus
+from app.settings.env import Environment
 from app.utils.web_socket_utils import require_initialized
 
 

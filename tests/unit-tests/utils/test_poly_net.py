@@ -1,6 +1,8 @@
-import unittest
-from app.utils.infra import polygon_net
 import os
+import unittest
+
+from app.utils.infra import polygon_net
+
 
 class TestPolyNet(unittest.TestCase):
     def setUp(self):

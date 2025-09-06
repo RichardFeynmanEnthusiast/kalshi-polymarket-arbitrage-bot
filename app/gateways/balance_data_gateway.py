@@ -1,6 +1,6 @@
+import math
 from decimal import Decimal
 from typing import Dict
-import math
 
 from shared_wallets.domain.types import Currency, Money
 

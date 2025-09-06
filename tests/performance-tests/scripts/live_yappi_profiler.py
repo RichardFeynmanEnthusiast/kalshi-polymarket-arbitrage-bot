@@ -1,11 +1,13 @@
 """ Script for profiling the double time service with live runs"""
-import asyncio
-import yappi
-from enum import Enum
-from app.main import main as app_entry
 import argparse
+import asyncio
 import os
+from enum import Enum
+
+import yappi
 from dotenv import load_dotenv
+
+from app.main import main as app_entry
 
 load_dotenv("tests/.env.profiler")
 

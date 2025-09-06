@@ -1,8 +1,8 @@
 import asyncio
 import unittest
+import uuid
 from decimal import Decimal
 from unittest.mock import MagicMock, AsyncMock
-import uuid
 
 from app.domain.primitives import KalshiSide
 from app.domain.types import KalshiOrder

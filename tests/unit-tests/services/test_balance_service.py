@@ -1,11 +1,13 @@
 import unittest
-from unittest.mock import Mock, patch
 from decimal import Decimal
+from unittest.mock import Mock, patch
 
-from app.services.operational.balance_service import BalanceService
-from shared_wallets.domain.types import Currency, Money
 from shared_wallets.domain.models import ExchangeWallet, Exchange
+from shared_wallets.domain.types import Currency, Money
+
 from app.domain.types import Wallets
+from app.services.operational.balance_service import BalanceService
+
 
 def make_wallet(balances):
     return ExchangeWallet(exchange=Exchange.KALSHI, balances=balances)

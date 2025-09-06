@@ -1,9 +1,8 @@
 from decimal import Decimal
 
-from app.domain.types import Wallets
 from app.domain.primitives import Money
+from app.domain.types import Wallets
 from app.strategies.trade_sqrt_size import calculate_minimum_wallet_budget
-from app.settings.settings import settings
 
 
 def get_trade_size(wallets: Wallets, trade_opportunity_size: Decimal, kalshi_fees: Money) -> int:

@@ -9,6 +9,7 @@ from app.clients.polymarket.clob_http import PolymClobHttpClient
 from app.domain.primitives import KalshiSide, PolySide
 from app.domain.types import KalshiOrder, PolymarketOrder
 
+
 class TradeGateway:
     """
     A repository for handling the low-level placement of trades on exchanges.

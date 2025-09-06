@@ -1,13 +1,9 @@
 import unittest
 from unittest.mock import MagicMock
 
-from decimal import Decimal
-from datetime import datetime, timezone
-
 from app.clients.supabase import SupabaseClient
-from app.domain.primitives import Platform
+from app.domain.models.opportunity import ArbitrageOpportunityRecord
 from app.gateways.attempted_opportunities_gateway import AttemptedOpportunitiesGateway
-from app.domain.models.opportunity import ArbitrageOpportunity, ArbitrageOpportunityRecord
 from tests.sample_data import DUMMY_ARB_OPPORTUNITY_BUY_BOTH, DUMMY_ARB_OPP_RECORD_ERROR_CASE
 
 
