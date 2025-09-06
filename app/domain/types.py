@@ -1,12 +1,13 @@
 from datetime import datetime
 from decimal import Decimal
-from typing import Optional, List
 from enum import Enum
+from typing import Optional, List
 
 from pydantic import BaseModel, Field, ConfigDict
+from shared_wallets.domain.models import ExchangeWallet
 
 from app.domain.primitives import Platform
-from shared_wallets.domain.models import ExchangeWallet
+
 
 class KalshiOrderStatus(str, Enum):
     RESTING = "resting"

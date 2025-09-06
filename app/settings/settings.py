@@ -1,8 +1,8 @@
 from decimal import Decimal
 from pathlib import Path
 
-from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BASE_DIR_1 = Path(__file__).resolve().parents[1]
 BASE_DIR_2 = Path(__file__).resolve().parents[2]

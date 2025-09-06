@@ -1,9 +1,11 @@
 import unittest
-from unittest.mock import Mock
 from decimal import Decimal
+from unittest.mock import Mock
 
 from shared_wallets.domain.types import Currency, Money
+
 from app.gateways.balance_data_gateway import BalanceDataGateway  # adjust the path as needed
+
 
 class TestBalanceDataGateway(unittest.TestCase):
 

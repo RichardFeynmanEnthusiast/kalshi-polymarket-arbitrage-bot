@@ -1,14 +1,13 @@
 from decimal import Decimal
-
-from sortedcontainers import SortedDict
 from typing import Dict
 
-from app.domain.events import OrderBookSnapshotReceived, PriceLevelData, ArbTradeResultReceived
-from app.domain.primitives import Money as pMoney
-from shared_wallets.domain.types import Currency, Money
 from shared_wallets.domain.models import ExchangeWallet, Exchange
+from shared_wallets.domain.types import Currency, Money
+from sortedcontainers import SortedDict
 
+from app.domain.events import OrderBookSnapshotReceived, PriceLevelData, ArbTradeResultReceived
 from app.domain.models.opportunity import ArbitrageOpportunity, ArbitrageOpportunityRecord
+from app.domain.primitives import Money as pMoney
 from app.domain.primitives import Platform
 from app.domain.types import Wallets, PolymarketOrder, KalshiOrder
 from app.markets.order_book import Orderbook

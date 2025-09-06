@@ -1,8 +1,9 @@
 from decimal import Decimal, ROUND_FLOOR
 
 from shared_wallets.domain.types import Currency
-from app.domain.types import Wallets
+
 from app.domain.primitives import Money
+from app.domain.types import Wallets
 from app.settings.settings import settings
 
 

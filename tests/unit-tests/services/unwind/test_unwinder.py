@@ -3,7 +3,7 @@ import unittest
 from decimal import Decimal
 from unittest.mock import MagicMock, AsyncMock, patch
 
-from app.domain.events import TradeFailed, TradeAttemptCompleted
+from app.domain.events import TradeFailed
 from app.domain.primitives import Platform, KalshiSide, PolySide
 from app.domain.types import TradeDetails
 from app.services.unwind import unwinder

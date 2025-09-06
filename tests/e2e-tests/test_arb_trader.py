@@ -1,9 +1,5 @@
 import asyncio
 import unittest
-from unittest.mock import MagicMock, patch
-
-from app.services.operational.balance_service import BalanceService
-from app.main import main
 
 
 class ArbitrageTraderTest(unittest.TestCase):

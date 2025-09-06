@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from app.domain.primitives import Money
 from app.strategies.trade_prct_size import calculate_trade_size, get_trade_size
-from tests.sample_data import VALID_WALLETS_LARGER_KALSHI, VALID_WALLETS_LARGER_POLY, VALID_WALLETS_EQUAL
+from tests.sample_data import VALID_WALLETS_LARGER_KALSHI
 
 
 class TestTradeSizeCalculations(unittest.TestCase):

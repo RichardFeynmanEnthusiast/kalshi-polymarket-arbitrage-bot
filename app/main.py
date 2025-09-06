@@ -4,24 +4,24 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import List, Tuple
 
+from shared_infra.supabase_setup import supabase_client
 from shared_wallets.domain.models import Currency
 
 from app.clients.polymarket.gamma_http import PolymGammaClient
+from app.gateways.attempted_opportunities_gateway import AttemptedOpportunitiesGateway
 from app.gateways.balance_data_gateway import BalanceDataGateway
-from app.services.operational.balance_service import BalanceService
-from shared_infra.supabase_setup import supabase_client
 from app.gateways.kalshi_gateway import KalshiGateway
 from app.gateways.polymarket_gateway import PolymarketGateway
-from app.settings.logging_config import LOGGING_CONFIG
-from app.settings.settings import settings
+from app.gateways.trade_gateway import TradeGateway
 from app.markets.manager import MarketManager
 from app.message_bus import MessageBus
 from app.orchestration.fletcher_orchestrator import FletcherOrchestrator
 from app.repositories.matches_repository import MatchesRepository
-from app.gateways.attempted_opportunities_gateway import AttemptedOpportunitiesGateway
-from app.gateways.trade_gateway import TradeGateway
+from app.services.operational.balance_service import BalanceService
 from app.services.operational.diagnostic_printer import DiagnosticPrinter
 from app.services.trade_storage import TradeStorage
+from app.settings.logging_config import LOGGING_CONFIG
+from app.settings.settings import settings
 from app.utils.kalshi_client_factory import KalshiClientFactory
 from app.utils.polymarket_client_factory import PolymarketClientFactory
 

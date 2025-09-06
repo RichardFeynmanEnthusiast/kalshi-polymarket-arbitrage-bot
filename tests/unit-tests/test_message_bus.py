@@ -1,20 +1,20 @@
 """ Integration tests for the message bus"""
 
+import asyncio
 import unittest
 from decimal import Decimal
-import asyncio
 from unittest.mock import MagicMock
-
-from tests.sample_data import (DUMMY_VALID_KALSHI_ORDER_RESPONSE, DUMMY_VALID_POLYMARKET_ORDER_RESPONSE,
-                               DUMMY_ARB_OPPORTUNITY_BUY_BOTH)
 
 from app.clients.supabase import SupabaseClient
 from app.domain.events import ExecuteTrade, StoreTradeResults
 from app.gateways.attempted_opportunities_gateway import AttemptedOpportunitiesGateway
 from app.gateways.trade_gateway import TradeGateway
-from app.services.trade_storage import TradeStorage
 from app.message_bus import MessageBus
 from app.services.execution import executor
+from app.services.trade_storage import TradeStorage
+from tests.sample_data import (DUMMY_VALID_KALSHI_ORDER_RESPONSE, DUMMY_VALID_POLYMARKET_ORDER_RESPONSE,
+                               DUMMY_ARB_OPPORTUNITY_BUY_BOTH)
+
 
 class TestMessageBus(unittest.IsolatedAsyncioTestCase):
 

@@ -1,19 +1,21 @@
 import asyncio
 import unittest
+from decimal import Decimal
 from unittest.mock import MagicMock, AsyncMock, Mock, patch
 
+from shared_wallets.domain.models import Exchange, ExchangeWallet
+from shared_wallets.domain.types import Currency, Money
+
+from app.domain.events import StoreTradeResults, ExecuteTrade, TradeAttemptCompleted, ArbitrageTradeSuccessful
 from app.domain.models.opportunity import ArbitrageOpportunity
 from app.domain.primitives import Platform
-from app.domain.events import StoreTradeResults, ExecuteTrade, TradeAttemptCompleted, ArbitrageTradeSuccessful
+from app.domain.types import Wallets
 from app.gateways.trade_gateway import TradeGateway
 from app.services.execution import executor
-from decimal import Decimal
-from shared_wallets.domain.types import Currency, Money
-from shared_wallets.domain.models import Exchange, ExchangeWallet
-from app.domain.types import Wallets
-
 from app.services.operational.balance_service import BalanceService
-from tests.sample_data import DUMMY_VALID_KALSHI_ORDER_RESPONSE, DUMMY_VALID_POLYMARKET_ORDER_RESPONSE, VALID_WALLETS_LARGER_KALSHI
+from tests.sample_data import DUMMY_VALID_KALSHI_ORDER_RESPONSE, DUMMY_VALID_POLYMARKET_ORDER_RESPONSE, \
+    VALID_WALLETS_LARGER_KALSHI
+
 
 def make_wallet(balances, exchange):
     return ExchangeWallet(exchange=exchange, balances=balances)

@@ -1,11 +1,11 @@
-from eth_typing import Address, ChecksumAddress, HexStr
+import json
+import os
+
+from dotenv import load_dotenv
+from eth_typing import Address, ChecksumAddress
 from web3 import Web3
 from web3.constants import MAX_INT
-from web3.middleware import ExtraDataToPOAMiddleware, SignAndSendRawMiddlewareBuilder
-import os
-from dotenv import load_dotenv
-from app.settings.settings import settings
-import json
+from web3.middleware import ExtraDataToPOAMiddleware
 
 load_dotenv()
 

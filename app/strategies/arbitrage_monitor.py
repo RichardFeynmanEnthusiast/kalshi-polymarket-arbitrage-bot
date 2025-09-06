@@ -9,6 +9,7 @@ from app.domain.primitives import Money, Platform, SIDES
 from app.markets.manager import MarketManager
 from app.markets.state import MarketState
 from app.message_bus import MessageBus
+
 # --- Module Setup ---
 
 getcontext().prec = 6

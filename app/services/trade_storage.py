@@ -1,13 +1,12 @@
 import asyncio
-import json
 import logging
 from typing import List, Optional
 
 from app.domain.events import ArbTradeResultReceived, StoreTradeResults
 from app.domain.models.opportunity import ArbitrageOpportunityRecord
-from app.message_bus import MessageBus
-from app.gateways.trade_gateway import TradeGateway
 from app.gateways.attempted_opportunities_gateway import AttemptedOpportunitiesGateway
+from app.gateways.trade_gateway import TradeGateway
+from app.message_bus import MessageBus
 
 logger = logging.getLogger(__name__)
 

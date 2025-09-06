@@ -1,20 +1,19 @@
 import asyncio
 import unittest
 from unittest.mock import MagicMock
-from decimal import Decimal
 
-from app.services.trade_storage import TradeStorage
-from app.domain.types import KalshiOrder, PolymarketOrder
-from app.domain.events import ArbTradeResultReceived, StoreTradeResults
-from app.domain.models.opportunity import ArbitrageOpportunity, ArbitrageOpportunityRecord
-from app.domain.primitives import Platform
-from app.message_bus import MessageBus
-from app.gateways.trade_gateway import TradeGateway
-from app.gateways.attempted_opportunities_gateway import AttemptedOpportunitiesGateway
 from app.clients.supabase import SupabaseClient
+from app.domain.events import ArbTradeResultReceived, StoreTradeResults
+from app.domain.models.opportunity import ArbitrageOpportunityRecord
+from app.domain.types import KalshiOrder, PolymarketOrder
+from app.gateways.attempted_opportunities_gateway import AttemptedOpportunitiesGateway
+from app.gateways.trade_gateway import TradeGateway
+from app.message_bus import MessageBus
+from app.services.trade_storage import TradeStorage
 from tests.sample_data import (DUMMY_VALID_KALSHI_ORDER_RESPONSE,
                                DUMMY_ARB_OPPORTUNITY_BUY_BOTH, DUMMY_VALID_POLYMARKET_ORDER_RESPONSE,
                                DELAYED_POLY_TRADE_RESULT)
+
 
 class TestTradeStorage(unittest.IsolatedAsyncioTestCase):
     """Test the TradeStorage service with actual database"""

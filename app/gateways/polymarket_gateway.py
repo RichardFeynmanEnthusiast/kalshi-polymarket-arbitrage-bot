@@ -3,6 +3,7 @@ from typing import List, Dict, Any
 from app.clients.polymarket.gamma_http import PolymGammaClient
 from app.gateways.market_data_gateway import MarketDataGateway
 
+
 class PolymarketGateway(MarketDataGateway):
     def __init__(self, http_client: PolymGammaClient):
         self.client = http_client
