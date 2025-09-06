@@ -82,10 +82,8 @@ class MarketManager(IMarketStateQuerier):
             event.market_id
         )
 
-        updates = [(level.price, level.size) for level in event.bids]
-        book.apply_updates(SIDES.BUY, updates)
-        updates = [(level.price, level.size) for level in event.asks]
-        book.apply_updates(SIDES.SELL, updates)
+        book.apply_updates(SIDES.BUY, event.bids)
+        book.apply_updates(SIDES.SELL, event.asks)
 
         if old_tob != book.get_top_of_book():
             self.logger.info(
