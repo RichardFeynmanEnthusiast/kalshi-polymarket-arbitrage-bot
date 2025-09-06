@@ -2,10 +2,8 @@ import copy
 import unittest
 from decimal import Decimal
 
-from sortedcontainers import SortedDict
-
 from app.domain.events import PriceLevelData
-from app.domain.primitives import Side, SIDES
+from app.domain.primitives import SIDES
 from app.markets.order_book import Orderbook
 from tests.sample_data import POLY_YES_ORDERBOOK
 
@@ -44,8 +42,7 @@ class TestOrderBooks(unittest.TestCase):
         orderbook.bids =  copy.deepcopy(POLY_YES_ORDERBOOK.bids)
         POLY_NEW_BIDS = [PriceLevelData(price=Decimal('0.45'), size=Decimal('8350.12'))]
         # act
-        updates = [(level.price, level.size) for level in POLY_NEW_BIDS]
-        orderbook.apply_updates(side=SIDES.BUY, updates=updates)
+        orderbook.apply_updates(side=SIDES.BUY, updates=POLY_NEW_BIDS)
         # assert
         self.assertEqual(POLY_NEW_BIDS[0].size,orderbook.bids[Decimal('0.45')])
 
@@ -55,8 +52,7 @@ class TestOrderBooks(unittest.TestCase):
         orderbook.bids =  copy.deepcopy(POLY_YES_ORDERBOOK.bids)
         POLY_NEW_BIDS = [PriceLevelData(price=Decimal('0.45'), size=Decimal('8350.12')), PriceLevelData(price=Decimal('0.03'), size=Decimal('8300.12'))]
         # act
-        updates = [(level.price, level.size) for level in POLY_NEW_BIDS]
-        orderbook.apply_updates(side=SIDES.BUY, updates=updates)
+        orderbook.apply_updates(side=SIDES.BUY, updates=POLY_NEW_BIDS)
         # assert
         self.assertEqual(POLY_NEW_BIDS[0].size,orderbook.bids[Decimal('0.45')])
         self.assertEqual(POLY_NEW_BIDS[1].size, orderbook.bids[Decimal('0.03')])
@@ -67,8 +63,7 @@ class TestOrderBooks(unittest.TestCase):
         orderbook.asks =  copy.deepcopy(POLY_YES_ORDERBOOK.asks)
         POLY_NEW_ASKS = [PriceLevelData(price=Decimal('0.46'), size=Decimal('8350.12')), PriceLevelData(price=Decimal('0.48'), size=Decimal('8300.12'))]
         # act
-        updates = [(level.price, level.size) for level in POLY_NEW_ASKS]
-        orderbook.apply_updates(side=SIDES.SELL, updates=updates)
+        orderbook.apply_updates(side=SIDES.SELL, updates=POLY_NEW_ASKS)
         # assert
         self.assertEqual(POLY_NEW_ASKS[0].size,orderbook.asks[Decimal('0.46')])
         self.assertEqual(POLY_NEW_ASKS[1].size, orderbook.asks[Decimal('0.48')])
