@@ -51,7 +51,9 @@ class Orderbook:
         """
         book_side = self.bids if side == SIDES.BUY else self.asks
 
-        for price, size in updates:
+        for level in updates:
+            price = level.price
+            size = level.size
             if size.is_zero():
                 book_side.pop(price, None)
             else:
