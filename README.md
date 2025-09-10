@@ -96,4 +96,4 @@ This event-driven flow makes the system incredibly flexible and resilient. We ca
 To start the arbitrage bot, run the main entry point using **Uvicorn**:
 
 ```bash
-uvicorn app.main:app --host 0.0.0.0 --port 8000
+uvicorn app.main:app --host 0.0.0.0 --port 8001
