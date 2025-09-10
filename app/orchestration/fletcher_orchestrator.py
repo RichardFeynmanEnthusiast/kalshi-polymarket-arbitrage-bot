@@ -242,7 +242,7 @@ class FletcherOrchestrator:
             # If any of the critical tasks stop, initiate a full shutdown.
             await self.stop()
 
-    async def stop(self):
+    async def stop(self) -> None:
         """Stops all running tasks gracefully."""
         if not self._running:
             return
