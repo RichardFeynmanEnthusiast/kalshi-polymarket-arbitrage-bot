@@ -94,7 +94,7 @@ Components communicate asynchronously via a **Message Bus** using **Events**.
 
     # Trading Parameters
     KALSHI_FEE_RATE=0.07
-    MIN_PROFIT_THRESHOLD=0.00 # Minimum profit percentage required to trade
+    MIN_PROFIT_THRESHOLD=0.00 # Minimum profit required to trade
     DRY_RUN=True # Set to False to execute real trades
     SHUTDOWN_BALANCE=10.00 # Stop trading if balance drops below this
     MINIMUM_WALLET_BALANCE=100.00 # Initial minimum required balance across wallets
