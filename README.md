@@ -2,7 +2,7 @@
 
 Double Time High Frequency Trader (HFT) is a sophisticated, real-time arbitrage trading bot designed to identify and execute "buy-both" opportunities between two prediction markets: **Polymarket** and **Kalshi**. It operates by listening to live order book data from both exchanges, normalizing it into a consistent internal format, and executing trades when a risk-free profit opportunity is detected.
 
-The entire system is architected using principles from **Domain-Driven Design** and an **Event-Driven** approach, resulting in a codebase that is robust, maintainable, and highly decoupled.
+The entire system is architected using principles from **Domain-Driven Design** and an **Event-Driven** approach, resulting in a codebase that is robust, maintainable, and highly decoupled. The application is now exposed via a **FastAPI** server, allowing for easy interaction and control through a REST API.
 
 ## Core Architectural Principles
 
@@ -47,6 +47,7 @@ This event-driven flow makes the system incredibly flexible and resilient. We ca
 ## System Components
 
 * `app/`
+    * `web/`: Contains the FastAPI server, which exposes the application's functionality through a REST API.
     * `clients/`: Adapters for communicating with external services (Kalshi, Polymarket).
     * `domain/`: The core of the application. Contains all business logic, models, and events. It is completely independent of any external framework or API.
         * `models/`: Contains the rich domain models like `Orderbook` and `MarketState`.
@@ -92,7 +93,7 @@ This event-driven flow makes the system incredibly flexible and resilient. We ca
 
 ## Running the Application
 
-To start the arbitrage bot, run the main entry point:
+To start the arbitrage bot, run the main entry point using **Uvicorn**:
 
 ```bash
-python app/main.py
+uvicorn app.main:app --host 0.0.0.0 --port 8001
