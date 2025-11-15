@@ -30,6 +30,11 @@ class Settings(BaseSettings):
     KALSHI_FEE_RATE: float = 0.07
     MIN_PROFIT_THRESHOLD: float = 0.0
 
+    # Run specific configurations
+    DRY_RUN: bool = True
+    SHUTDOWN_BALANCE: float = 0.0
+    MINIMUM_WALLET_BALANCE: float = 1.0
+
     model_config = SettingsConfigDict(
         env_file=BASE_DIR_2 / ".env",
         env_file_encoding="utf-8"
