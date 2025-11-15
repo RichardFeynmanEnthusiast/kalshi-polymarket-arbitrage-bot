@@ -19,13 +19,14 @@ LOGGING_CONFIG = {
     "formatters": {
         # Human-readable format for the console
         "console_formatter": {
-            "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+            "format": "%(asctime)s,%(msecs)08d - %(name)s - %(levelname)s - %(message)s",
             "datefmt": "%Y-%m-%d %H:%M:%S",
         },
         # Structured JSON format for log files
         "json_formatter": {
             "class": "pythonjsonlogger.jsonlogger.JsonFormatter",
-            "format": "%(asctime)s %(name)s %(levelname)s %(message)s %(filename)s %(lineno)d",
+            "format": "%(asctime)s %(msecs)08d %(name)s %(levelname)s %(message)s %(filename)s %(lineno)d",
+            "datefmt": "%Y-%m-%d %H:%M:%S",
         },
     },
     "handlers": {
@@ -85,6 +86,16 @@ LOGGING_CONFIG = {
         "app.orchestration": {
             "handlers": ["service_file", "console"],
             "level": "INFO",
+            "propagate": False,
+        },
+        "httpx": {
+            "handlers": ["service_file", "console"],  # or use a dedicated file if you want
+            "level": "DEBUG",
+            "propagate": False,
+        },
+        "httpcore": {
+            "handlers": ["service_file", "console"],  # or use a dedicated file if you want
+            "level": "DEBUG",
             "propagate": False,
         },
     },

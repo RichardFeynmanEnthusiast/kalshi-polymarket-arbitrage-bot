@@ -1,5 +1,7 @@
+from decimal import Decimal
 from pathlib import Path
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BASE_DIR_1 = Path(__file__).resolve().parents[1]
@@ -29,15 +31,14 @@ class Settings(BaseSettings):
     # Extra configurations
     KALSHI_FEE_RATE: float = 0.07
     MIN_PROFIT_THRESHOLD: float = 0.0
-
-    # Run specific configurations
     DRY_RUN: bool = True
-    SHUTDOWN_BALANCE: float = 0.0
-    MINIMUM_WALLET_BALANCE: float = 1.0
+    SHUTDOWN_BALANCE: Decimal = 10.00
+    MINIMUM_WALLET_BALANCE: Decimal = Field(..., description="Minimum wallet balance required")
 
     model_config = SettingsConfigDict(
         env_file=BASE_DIR_2 / ".env",
         env_file_encoding="utf-8"
     )
+
 
 settings = Settings()

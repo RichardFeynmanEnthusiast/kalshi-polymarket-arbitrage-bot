@@ -4,7 +4,6 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, Optional, List
 
 import aiohttp
-import pandas as pd
 import requests
 from cryptography.hazmat.primitives.asymmetric import rsa
 
@@ -50,7 +49,6 @@ class KalshiHttpClient(KalshiBaseClient):
             # Raise an HTTPError with the new, more informative message.
             raise requests.exceptions.HTTPError(error_message, response=response)
 
-
     def post(self, path: str, body: dict) -> Any:
         """Performs an authenticated POST request to the Kalshi API."""
         self.rate_limit()
@@ -61,6 +59,17 @@ class KalshiHttpClient(KalshiBaseClient):
         )
         self.raise_if_bad_response(response)
         return response.json()
+
+    async def async_post(self, path: str, body: dict) -> Any:
+        """Performs an authenticated POST request to the Kalshi API."""
+        self.rate_limit()
+        headers = self.request_headers("POST", path)
+        url = self.host + path
+
+        async with aiohttp.ClientSession(headers=headers) as session:
+            async with session.post(url, json=body) as response:
+                response.raise_for_status()
+                return await response.json()
 
     def get(self, path: str, params: Dict[str, Any] = {}) -> Any:
         """Performs an authenticated GET request to the Kalshi API."""
@@ -159,7 +168,7 @@ class KalshiHttpClient(KalshiBaseClient):
             self,
             status: str = "open",
             limit: int = 200,
-    ) -> pd.DataFrame:
+    ):
         """
         Fetches all events (paginating through cursors) and return a
         Dataframe of unique events
@@ -184,9 +193,9 @@ class KalshiHttpClient(KalshiBaseClient):
 
             params["cursor"] = cursor
 
-        df = pd.DataFrame(all_events)
+        df = all_events
 
-        return df.drop_duplicates(subset=["event_ticker"]).reset_index(drop=True)
+        return all_events
 
     def get_market(self, ticker: str):
         """ Fetches a single market given a market ticker"""
@@ -204,7 +213,7 @@ class KalshiHttpClient(KalshiBaseClient):
             self,
             status: str = "open",
             limit: int = 1000,
-    ) -> pd.DataFrame:
+    ):
         """
         Fetches all markets (paginating through cursors) and return a DataFrame
         """
@@ -229,10 +238,9 @@ class KalshiHttpClient(KalshiBaseClient):
 
             params["cursor"] = cursor
 
-        df = pd.DataFrame(all_markets)
-        return df.drop_duplicates(subset=["ticker"]).reset_index(drop=True)
+        return all_markets
 
-    def create_order(
+    async def create_order(
         self,
         action: str,
         side: str,
@@ -269,12 +277,13 @@ class KalshiHttpClient(KalshiBaseClient):
         Returns:
             Response JSON as a dictionary.
         """
-        # Validate price parameters
-        if (yes_price is None) == (no_price is None):
-            raise ValueError("Exactly one of yes_price or no_price must be provided")
+        # Validate price parameters for limit orders
+        if type == "limit" and (yes_price is None) == (no_price is None):
+            raise ValueError("Exactly one of yes_price or no_price must be provided for limit orders.")
+
         # Market buy requires buy_max_cost
         if type == "market" and action == "buy" and buy_max_cost is None:
-            raise ValueError("buy_max_cost is required for market buy orders")
+            raise ValueError("buy_max_cost is required for market buy orders.")
 
         body: Dict[str, Any] = {
             "action": action,
@@ -299,7 +308,7 @@ class KalshiHttpClient(KalshiBaseClient):
             body["sell_position_floor"] = sell_position_floor
 
         # Send the request
-        return self.post(f"{self.portfolio_url}/orders", body)
+        return await self.async_post(f"{self.portfolio_url}/orders", body)
 
     def get_orders(
             self,

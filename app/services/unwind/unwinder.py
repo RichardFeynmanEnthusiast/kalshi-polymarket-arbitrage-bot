@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import uuid
 
@@ -11,28 +12,39 @@ logger = logging.getLogger(__name__)
 
 _trade_gateway: TradeGateway
 _bus: MessageBus
+_shutdown_event: asyncio.Event
 
-def initialize_unwinder(trade_gateway: TradeGateway, bus: MessageBus):
+def initialize_unwinder(
+    trade_gateway: TradeGateway,
+    bus: MessageBus,
+    shutdown_event: asyncio.Event,
+):
     """
     Injects dependencies into the unwinder module.
     """
-    global _trade_gateway, _bus
+    global _trade_gateway, _bus, _shutdown_event
     _trade_gateway = trade_gateway
     _bus = bus
+    _shutdown_event = shutdown_event
     logger.info("Unwinder handlers initialized.")
 
 async def handle_trade_failed(event: TradeFailed):
     """
-    Handles the unwinding of a trade by listening for a TradeFailed event
-    and placing an opposing order for the successful leg.
+    Handles unwinding a trade and then triggers application shutdown.
     """
     logger.info(f"Unwinder processing TradeFailed event for opportunity: {event.opportunity.market_id}")
     successful_leg = event.successful_leg
 
-    if successful_leg.platform == Platform.KALSHI:
-        await _unwind_kalshi_trade(successful_leg)
-    elif successful_leg.platform == Platform.POLYMARKET:
-        await _unwind_polymarket_trade(successful_leg)
+    try:
+        if successful_leg.platform == Platform.KALSHI:
+            await _unwind_kalshi_trade(successful_leg)
+        elif successful_leg.platform == Platform.POLYMARKET:
+            await _unwind_polymarket_trade(successful_leg)
+    finally:
+        # The executor has already published TradeAttemptCompleted.
+        # The unwinder's only remaining job is to trigger the shutdown.
+        logger.critical("Unwind process complete. Triggering application shutdown.")
+        _shutdown_event.set()
 
 async def _unwind_kalshi_trade(successful_leg: TradeDetails):
     """

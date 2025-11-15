@@ -1,11 +1,25 @@
 from datetime import datetime
 from decimal import Decimal
+from enum import Enum
 from typing import Optional, List
 
 from pydantic import BaseModel, Field, ConfigDict
+from shared_wallets.domain.models import ExchangeWallet
 
 from app.domain.primitives import Platform
 
+
+class KalshiOrderStatus(str, Enum):
+    RESTING = "resting"
+    CANCELED = "canceled"
+    EXECUTED = "executed"
+    PENDING = "pending"
+
+class PolymarketOrderStatus(str, Enum):
+    DELAYED = "delayed"
+    MATCHED = "matched"
+    UNMATCHED = "unmatched"
+    LIVE = "live"
 
 class KalshiOrder(BaseModel):
     action: Optional[str] = None
@@ -15,7 +29,7 @@ class KalshiOrder(BaseModel):
     no_price: Optional[int] = None
     order_id: Optional[str] = None
     side: Optional[str] = None
-    status: str # trade can possibly be resent so we don't freeze the status
+    status: str  # trade can possibly be resent so we don't freeze the status
     ticker: str
     type: Optional[str] = None
     user_id: Optional[str] = None
@@ -24,17 +38,20 @@ class KalshiOrder(BaseModel):
 
     model_config = ConfigDict(extra='allow')
 
+
 class PolymarketOrder(BaseModel):
     errorMsg: Optional[str] = None
     orderID: Optional[str] = None
     takerAmount: Optional[str] = None
     makingAmount: Optional[str] = None
-    status: str 
+    status: str
     transactionsHashes: Optional[List[str]] = None
     success: bool = Field(default=False)
     trade_size: Optional[Decimal] = None
+    token_id: Optional[str] = None # not in raw response
 
-    model_config = ConfigDict(extra='ignore')
+    model_config = ConfigDict(extra='allow')
+
 
 class TradeDetails(BaseModel):
     """
@@ -47,3 +64,13 @@ class TradeDetails(BaseModel):
     kalshi_ticker: Optional[str] = None
     kalshi_side: Optional[str] = None
     polymarket_token_id: Optional[str] = None
+
+class Wallets(BaseModel):
+    """
+    Class to hold a user's exchange wallets.
+    """
+    kalshi_wallet : ExchangeWallet
+    polymarket_wallet : ExchangeWallet
+
+    class Config:
+        arbitrary_types_allowed = True

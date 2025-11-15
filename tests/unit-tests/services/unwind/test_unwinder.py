@@ -1,3 +1,4 @@
+import asyncio
 import unittest
 from decimal import Decimal
 from unittest.mock import MagicMock, AsyncMock, patch
@@ -23,9 +24,14 @@ class TestUnwinder(unittest.IsolatedAsyncioTestCase):
         self.bus = MagicMock()
         self.bus.publish = AsyncMock()
 
+        # Mock shutdown event
+        self.shutdown_event = MagicMock(spec=asyncio.Event)
+        self.shutdown_event.set = MagicMock()
+
         unwinder.initialize_unwinder(
             trade_gateway=self.trade_gateway,
             bus=self.bus,
+            shutdown_event=self.shutdown_event
         )
 
         # Import stub
@@ -58,7 +64,7 @@ class TestUnwinder(unittest.IsolatedAsyncioTestCase):
             error_message=f"{failed_platform.value} trade failed."
         )
 
-    async def test_unwind_successful_kalshi_yes_leg(self):
+    async def test_unwind_successful_kalshi_leg_triggers_shutdown(self):
         """
         Verify that a successful Kalshi 'yes' leg is unwound correctly.
         """
@@ -136,10 +142,10 @@ class TestUnwinder(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(call_kwargs['side'], PolySide.SELL)
 
     @patch('app.services.unwind.unwinder.logger.error')
-    async def test_unwind_logs_error_if_gateway_fails(self, mock_logger_error):
+    async def test_unwind_triggers_shutdown_even_if_unwind_fails(self, mock_logger_error):
         """
-        Verify that if the trade gateway fails during an unwind attempt,
-        the exception is caught and an error is logged.
+        Verify that the shutdown event is triggered even if the unwind
+        trade itself fails.
         """
         # Arrange
         self.trade_gateway.place_kalshi_market_order.side_effect = Exception("Network Error")
@@ -156,8 +162,8 @@ class TestUnwinder(unittest.IsolatedAsyncioTestCase):
         # Assert
         self.trade_gateway.place_kalshi_market_order.assert_called_once()
         mock_logger_error.assert_called_once()
-        log_message = mock_logger_error.call_args[0][0]
-        self.assertIn("Failed to place Kalshi emergency unwind order", log_message)
+        self.bus.publish.assert_not_called()
+        self.shutdown_event.set.assert_called_once()
 
 
 if __name__ == '__main__':

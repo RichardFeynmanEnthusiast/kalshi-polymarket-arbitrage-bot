@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 from py_clob_client.clob_types import OrderType
 from pydantic import ValidationError
@@ -8,6 +8,7 @@ from app.clients.kalshi.kalshi_http_client import KalshiHttpClient
 from app.clients.polymarket.clob_http import PolymClobHttpClient
 from app.domain.primitives import KalshiSide, PolySide
 from app.domain.types import KalshiOrder, PolymarketOrder
+
 
 class TradeGateway:
     """
@@ -18,7 +19,7 @@ class TradeGateway:
         self.kalshi = kalshi_http
         self.polymarket = polymarket_http
 
-    def place_kalshi_order(
+    async def place_kalshi_order(
             self,
             ticker: str,
             side: KalshiSide,
@@ -32,7 +33,7 @@ class TradeGateway:
         Kalshi requires order sizes to be whole integers and prices in cents.
         """
         price_param = {"yes_price": price_in_cents} if side == KalshiSide.YES else {"no_price": price_in_cents}
-        resp = self.kalshi.create_order(
+        resp = await self.kalshi.create_order(
             action=action,
             side=side.value,
             type="limit",
@@ -44,7 +45,7 @@ class TradeGateway:
 
         return self.process_raw_kalshi_order(resp, trade_size=Decimal(count))
 
-    def place_polymarket_order(
+    async def place_polymarket_order(
             self,
             token_id: str,
             price: Decimal,
@@ -55,7 +56,7 @@ class TradeGateway:
         Places a Fill-Or-Kill (FOK) limit order on Polymarket.
         """
 
-        resp = self.polymarket.place_order(
+        resp = await self.polymarket.place_order(
             token_id=token_id,
             price=float(price),
             size=size,
@@ -65,31 +66,40 @@ class TradeGateway:
 
         return self.process_raw_polymarket_order(resp, token_id)
 
-    def place_kalshi_market_order(
+    async def place_kalshi_market_order(
             self,
             ticker: str,
             side: KalshiSide,
             count: int,
             client_order_id: str,
-            action: str = "sell"
+            action: str,
+            buy_max_cost: Optional[int] = None
     ) -> KalshiOrder:
         """
         Places a true market order on Kalshi.
         """
-        resp = self.kalshi.create_order(
-            action=action, side=side.value, type="market",
-            ticker=ticker, count=count, client_order_id=client_order_id
+        if action == "buy" and buy_max_cost is None:
+            raise ValueError("buy_max_cost is required for a market buy order.")
+
+        resp = await self.kalshi.create_order(
+            action=action,
+            side=side.value,
+            type="market",
+            ticker=ticker,
+            count=count,
+            client_order_id=client_order_id,
+            buy_max_cost=buy_max_cost
         )
         return self.process_raw_kalshi_order(resp, trade_size=Decimal(count))
 
-    def place_polymarket_market_order(self, token_id: str, size: float, side: PolySide) -> PolymarketOrder:
+    async def place_polymarket_market_order(self, token_id: str, size: float, side: PolySide) -> PolymarketOrder:
         """
         Places a market order on Polymarket using an aggressive-priced FOK limit order,
         as per the official documentation.
         """
         # For a market SELL, set a very low price to guarantee it crosses the spread
         aggressive_price = 0.01 if side == PolySide.SELL else 0.99
-        resp = self.polymarket.place_order(
+        resp = await self.polymarket.place_order(
             token_id=token_id,
             price=float(aggressive_price),
             size=size,
