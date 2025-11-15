@@ -94,3 +94,8 @@ To start the arbitrage bot, run the main entry point:
 
 ```bash
 python app/main.py
+```
+To run the application without placing live trades, ensure DRY_RUN is set to true. Configure your market tuples and run as a module:
+```bash
+python -m app.main
+```
