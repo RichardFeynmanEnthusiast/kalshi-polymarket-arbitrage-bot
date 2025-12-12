@@ -3,7 +3,7 @@ from decimal import Decimal
 from typing import Dict
 
 from shared_wallets.domain.types import Currency, Money
-
+from app.settings.settings import settings
 
 class BalanceDataGateway:
     def __init__(self, clob_http_client, kalshi_http_client):
@@ -11,7 +11,16 @@ class BalanceDataGateway:
         self._kalshi_http_client = kalshi_http_client
 
     def get_venue_balances(self) -> Dict[Currency, Money]:
-        """ """
+        """ Retrieves balances, returning dummy data if in DRY_RUN mode. """
+
+        if settings.DRY_RUN:
+            # Return fake balances to allow the app to start without real funds
+            return {
+                Currency.USDC_E: Money(Decimal("1000"), Currency.USDC_E),
+                Currency.POL: Money(Decimal("10"), Currency.POL),
+                Currency.USD: Money(Decimal("1000"), Currency.USD),
+            }
+
         try:
             usdc_e_bal, matic_bal = self._clob_http_client.get_starting_balances()
             raw_kalshi_balance = self._kalshi_http_client.get_balance()
