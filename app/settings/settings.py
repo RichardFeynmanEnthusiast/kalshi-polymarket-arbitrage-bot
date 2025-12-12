@@ -7,7 +7,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 BASE_DIR_1 = Path(__file__).resolve().parents[1]
 BASE_DIR_2 = Path(__file__).resolve().parents[2]
 
-
 class Settings(BaseSettings):
     # App environment (directly affects Kalshi's client behavior)
     APP_ENV: str = "prod"
