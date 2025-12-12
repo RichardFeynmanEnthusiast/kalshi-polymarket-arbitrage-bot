@@ -136,6 +136,10 @@ class PolymarketWebSocketClient(PolymBaseClient):
             # Wait for the first message, which should be the confirmation.
             sub_message_raw = await asyncio.wait_for(self._ws.recv(), timeout=10.0)
             messages = json.loads(sub_message_raw)
+
+            if isinstance(messages, dict):
+                messages = [messages]
+
             for data in messages:
                 await self._process_and_publish_event(data)
         except asyncio.TimeoutError:
@@ -147,11 +151,17 @@ class PolymarketWebSocketClient(PolymBaseClient):
     async def _listen(self) -> None:
         """Listen for data messages and emit domain events."""
         assert self._ws is not None
+        self.logger.info("[Polymarket] Beginning listening process")
         async for raw_message in self._ws:
             if raw_message in {"PING", "PONG"}: continue
             try:
                 messages = json.loads(raw_message)
+
+                if isinstance(messages, dict):
+                    messages = [messages]
+
                 for data in messages:
                     await self._process_and_publish_event(data)
+
             except json.JSONDecodeError:
                 self.logger.warning(f"[Polymarket] Received non-JSON message: {raw_message}")
